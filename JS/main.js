@@ -56,7 +56,7 @@ function showInfo() {
   }, 3000);
 }
 
-const API_URL = "http://127.0.0.1:8001/chat";
+const API_URL = "https://diamond-agent-fvvd.onrender.com/chat";
 const sessionId = crypto.randomUUID();
 
 const chatForm = document.getElementById("chat-form");
