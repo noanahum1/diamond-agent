@@ -1,1 +1,65 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Diamond Advisor Agent | יועץ יהלומים חכם</title>
 
+    <link rel="stylesheet" href="css/diamond_style.css" />
+  </head>
+
+  <body>
+    <header>
+      <button id="theme-toggle" aria-label="החלפת מצב תצוגה">☾</button>
+
+      <h1>Diamond Advisor Agent</h1>
+      <p>מערכת חכמה לניתוח, השוואה והערכת מאפייני יהלומים</p>
+    </header>
+
+    <main>
+      <div class="chat-controls">
+        <button type="button" onclick="scrollToChat()">התחילו להתייעץ</button>
+        <button type="button" onclick="showInfo()">
+          מה האייג׳נט יודע לעשות?
+        </button>
+      </div>
+
+      <section class="modal-content" id="intro-section">
+        <h2>יועץ היהלומים החכם שלכם</h2>
+
+        <p>
+          האייג׳נט נועד לסייע בהבנת מאפייני יהלומים, ניתוח איכותם, השוואה בין
+          פריטים דומים ומתן הסבר מקצועי על גורמים המשפיעים על מחיר היהלום.
+        </p>
+
+        <br />
+
+        <h2>דוגמאות לשאלות שאפשר לשאול</h2>
+
+        <ul>
+          <li>איזה מאפיינים משפיעים הכי הרבה על מחיר היהלום?</li>
+          <li>האם יהלום עם Cut גבוה בהכרח יהיה יקר יותר?</li>
+          <li>מצא לי יהלומים דומים לפי מאפייני איכות.</li>
+          <li>מה ההבדל בין Color, Clarity, Polish, Symmetry?</li>
+          <li>האם היהלום הזה נחשב איכותי ביחס למחיר שלו?</li>
+        </ul>
+      </section>
+
+      <section id="chatbot" class="chat-container">
+        <iframe
+          src="https://www.chatbase.co/chatbot-iframe/PUT_YOUR_CHATBOT_ID_HERE"
+          allow="microphone"
+          title="Diamond Advisor Agent Chatbot"
+          style="width: 100%; height: 100%; border: none"
+        >
+        </iframe>
+      </section>
+    </main>
+
+    <footer>
+      &copy; 2025 Diamond Advisor Agent | מערכת אקדמית לניתוח והערכת יהלומים
+    </footer>
+
+    <script src="JS/main.js"></script>
+  </body>
+</html>
