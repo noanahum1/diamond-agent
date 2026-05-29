@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Diamond Advisor Agent | יועץ יהלומים חכם</title>
 
-    <link rel="stylesheet" href="css/diamond_style.css" />
+    <link rel="stylesheet" href="CSS/diamond_style.css" />
   </head>
 
   <body>
@@ -24,40 +24,60 @@
         </button>
       </div>
 
-      <section class="modal-content" id="intro-section">
-        <h2>יועץ היהלומים החכם שלכם</h2>
+      <section class="intro-card" id="intro-section">
+        <div class="intro-content">
+          <h2>יועץ היהלומים החכם שלכם</h2>
 
-        <p>
-          האייג׳נט נועד לסייע בהבנת מאפייני יהלומים, ניתוח איכותם, השוואה בין
-          פריטים דומים ומתן הסבר מקצועי על גורמים המשפיעים על מחיר היהלום.
-        </p>
+          <p>
+            האייג׳נט נועד לסייע בהבנת מאפייני יהלומים, ניתוח איכותם, השוואה בין
+            פריטים דומים ומתן הסבר מקצועי על גורמים המשפיעים על מחיר היהלום.
+          </p>
 
-        <br />
+          <h2>דוגמאות לשאלות שאפשר לשאול</h2>
 
-        <h2>דוגמאות לשאלות שאפשר לשאול</h2>
+          <ul>
+            <li>איזה מאפיינים משפיעים הכי הרבה על מחיר היהלום?</li>
+            <li>האם יהלום עם Cut גבוה בהכרח יהיה יקר יותר?</li>
+            <li>מצא לי יהלומים דומים לפי מאפייני איכות.</li>
+            <li>מה ההבדל בין Color, Clarity, Polish, Symmetry?</li>
+            <li>האם היהלום הזה נחשב איכותי ביחס למחיר שלו?</li>
+          </ul>
+        </div>
 
-        <ul>
-          <li>איזה מאפיינים משפיעים הכי הרבה על מחיר היהלום?</li>
-          <li>האם יהלום עם Cut גבוה בהכרח יהיה יקר יותר?</li>
-          <li>מצא לי יהלומים דומים לפי מאפייני איכות.</li>
-          <li>מה ההבדל בין Color, Clarity, Polish, Symmetry?</li>
-          <li>האם היהלום הזה נחשב איכותי ביחס למחיר שלו?</li>
-        </ul>
+        <div class="intro-image-wrapper">
+          <img
+            src="CSS/DiamondsPIC.png"
+            alt="תמונה של יהלום"
+            class="intro-diamond-image"
+          />
+        </div>
       </section>
 
       <section id="chatbot" class="chat-container">
-        <iframe
-          src="https://www.chatbase.co/chatbot-iframe/PUT_YOUR_CHATBOT_ID_HERE"
-          allow="microphone"
-          title="Diamond Advisor Agent Chatbot"
-          style="width: 100%; height: 100%; border: none"
-        >
-        </iframe>
+        <div class="chat-window" id="chat-window">
+          <div class="bot-message">
+            שלום, אני Diamond Advisor Agent. אפשר לשאול אותי על איכות יהלומים,
+            מחיר, מאפיינים, והשוואה בין פריטים דומים.
+          </div>
+        </div>
+
+        <form class="chat-form" id="chat-form">
+          <input
+            type="text"
+            id="user-input"
+            name="message"
+            placeholder="כתבי כאן שאלה על יהלומים..."
+            autocomplete="off"
+            required
+          />
+
+          <button type="submit" id="send-button">שליחה</button>
+        </form>
       </section>
     </main>
 
     <footer>
-      &copy; 2025 Diamond Advisor Agent | מערכת אקדמית לניתוח והערכת יהלומים
+      &copy; 2026 Diamond Advisor Agent | By Noa Nahum & Shani Ziflinger
     </footer>
 
     <script src="JS/main.js"></script>
