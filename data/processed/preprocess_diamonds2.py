@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 
 # Show all columns without truncating
 pd.set_option('display.max_columns', None)
@@ -6,7 +7,8 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 1000)
 
 # Define the file path
-file_path_2 = 'diamonds2.csv'
+BASE_DIR = Path(__file__).resolve().parent
+file_path_2 = BASE_DIR / "diamonds2.csv"
 
 # 1. Load the data
 print("--- Loading the second dataset (diamonds2.csv) ---")
@@ -50,7 +52,7 @@ print("--- Starting Data Transformation ---")
 df_diamonds_cleaned.drop_duplicates(inplace=True)
 print("Duplicate rows removed (keeping first occurrence).")
 # Save the updated DataFrame back to the original CSV file
-df_diamonds_cleaned.to_csv("diamonds2.csv", index=False)
+df_diamonds_cleaned.to_csv(file_path_2, index=False)
 print("File updated successfully.")
 
 total_zero_rows = df_diamonds_cleaned[
@@ -73,7 +75,7 @@ df_diamonds_cleaned['price_category_encoded'] = df_diamonds_cleaned['price_categ
 print("Encoded price category column added successfully.")
 
 # Save the updated DataFrame back to the original CSV file
-df_diamonds_cleaned.to_csv("diamonds2.csv", index=False)
+df_diamonds_cleaned.to_csv(file_path_2, index=False)
 print("File updated successfully.")
 
 
@@ -127,7 +129,7 @@ print("\nUnmapped values in Clarity:")
 print(df_diamonds_cleaned.loc[df_diamonds_cleaned['Clarity_encoded'].isnull(), 'Clarity'].unique())
 
 # Save back to the ORIGINAL CSV file (overwrite)
-df_diamonds_cleaned.to_csv("diamonds2.csv", index=False)
+df_diamonds_cleaned.to_csv(file_path_2, index=False)
 print("\nOriginal CSV file updated successfully.")
 
 # --- Clean spaces in categorical columns ---
@@ -147,7 +149,7 @@ df_diamonds_cleaned['Girdle_encoded'] = df_diamonds_cleaned['Girdle'].map(girdle
 print("Polish, Symmetry, and Girdle encoded successfully.")
 
 # --- Save updated dataset back to original CSV ---
-df_diamonds_cleaned.to_csv("diamonds2.csv", index=False)
+df_diamonds_cleaned.to_csv(file_path_2, index=False)
 print("File updated successfully.")
 
 # --- Drop Culet and Fluorescence columns safely ---
@@ -157,7 +159,7 @@ df_diamonds_cleaned.drop(columns=existing_columns, inplace=True)
 print(f"Columns removed successfully: {existing_columns}")
 
 # --- Save updated dataset back to original CSV ---
-df_diamonds_cleaned.to_csv("diamonds2.csv", index=False)
+df_diamonds_cleaned.to_csv(file_path_2, index=False)
 print("File updated successfully.")
 
 # Total number of rows
@@ -181,7 +183,7 @@ print("Shape before removing missing values:", df_diamonds_cleaned.shape)
 # Remove all rows that contain at least one missing value
 df_diamonds_cleaned = df_diamonds_cleaned.dropna().copy()
 print("Shape after removing missing values:", df_diamonds_cleaned.shape)
-df_diamonds_cleaned.to_csv("diamonds2.csv", index=False)
+df_diamonds_cleaned.to_csv(file_path_2, index=False)
 print("File updated successfully after removing missing values.")
 
 
@@ -197,5 +199,5 @@ df_diamonds_cleaned['Carat_category'] = pd.cut(
 carat_category_mapping = {'extra extra small': 1, 'extra small': 2, 'small': 3, 'medium': 4, 'large': 5, 'extra large': 6,
                           'ultra large (3+)': 7}
 df_diamonds_cleaned['Carat_category_encoded'] = df_diamonds_cleaned['Carat_category'].map(carat_category_mapping)
-df_diamonds_cleaned.to_csv("diamonds2.csv", index=False)
+df_diamonds_cleaned.to_csv(file_path_2, index=False)
 print("Carat column renamed, categories created, and encoded successfully.")

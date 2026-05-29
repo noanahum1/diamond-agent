@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 
 # Show all columns without truncating
 pd.set_option('display.max_columns', None)
@@ -6,7 +7,8 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 1000)
 
 # Define the file path
-file_path_1 = 'diamonds1.csv'
+BASE_DIR = Path(__file__).resolve().parent
+file_path_1 = BASE_DIR / "diamonds1.csv"
 
 # 1. Load the data
 print("--- Loading the first dataset (diamonds1.csv) ---")
@@ -80,7 +82,7 @@ zeros_left = len(
     df_diamonds[ (df_diamonds['x'] == 0) | (df_diamonds['y'] == 0) | (df_diamonds['z'] == 0)])
 print(f"Verification - Total zero dimension rows remaining: {zeros_left}")
 # Save the cleaned DataFrame back to the CSV file
-df_diamonds.to_csv("diamonds1.csv", index=False)
+df_diamonds.to_csv(file_path_1, index=False)
 print("\nCleaned file has been saved successfully.")
 
 # Mapping dictionaries
@@ -93,18 +95,18 @@ df_diamonds['cut_encoded'] = df_diamonds['cut'].map(cut_mapping)
 df_diamonds['color_encoded'] = df_diamonds['color'].map(color_mapping)
 df_diamonds['clarity_encoded'] = df_diamonds['clarity'].map(clarity_mapping)
 
-df_diamonds.to_csv("diamonds1.csv", index=False)
+df_diamonds.to_csv(file_path_1, index=False)
 print("\nNew encoded columns added successfully.")
 
 df_diamonds['carat_category'] = pd.cut(df_diamonds['carat'],
         bins=[0,0.5,1,1.5,2,2.5,3,df_diamonds['carat'].max()],
         labels=['extra extra small','extra small','small','medium','large','extra large','ultra large (3+)'])
-df_diamonds.to_csv("diamonds1.csv", index=False)
+df_diamonds.to_csv(file_path_1, index=False)
 
 carat_category_mapping = {'extra extra small':1, 'extra small':2, 'small':3, 'medium':4, 'large':5, 'extra large':6, 'ultra large (3+)':7}
 df_diamonds['carat_category_encoded'] = df_diamonds['carat_category'].map(carat_category_mapping)
 print("Numeric carat category column added.")
-df_diamonds.to_csv("diamonds1.csv", index=False)
+df_diamonds.to_csv(file_path_1, index=False)
 print("File updated successfully.")
 
 print("\n--- Creating Price Categories ---")
@@ -114,5 +116,5 @@ print("Price category column added successfully.")
 price_category_mapping = {'very low': 1, 'low': 2, 'medium': 3, 'high': 4, 'very high': 5}
 df_diamonds['price_category_encoded'] = df_diamonds['price_category'].map(price_category_mapping)
 print("Encoded price category column added successfully.")
-df_diamonds.to_csv("diamonds1.csv", index=False)
+df_diamonds.to_csv(file_path_1, index=False)
 print("File updated successfully with price category columns.")
