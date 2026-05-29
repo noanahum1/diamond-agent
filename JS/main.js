@@ -55,3 +55,65 @@ function showInfo() {
     notification.remove();
   }, 3000);
 }
+
+const API_URL = "http://127.0.0.1:8001/chat";
+const sessionId = crypto.randomUUID();
+
+const chatForm = document.getElementById("chat-form");
+const userInput = document.getElementById("user-input");
+const chatWindow = document.getElementById("chat-window");
+
+function addMessage(text, sender) {
+  const messageDiv = document.createElement("div");
+
+  messageDiv.className =
+    sender === "user" ? "user-message" : "bot-message";
+
+  messageDiv.textContent = text;
+
+  chatWindow.appendChild(messageDiv);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+if (chatForm) {
+  chatForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const message = userInput.value.trim();
+
+    if (!message) {
+      return;
+    }
+
+    addMessage(message, "user");
+    userInput.value = "";
+
+    const loadingMessage = document.createElement("div");
+    loadingMessage.className = "bot-message";
+    loadingMessage.textContent = "בודק את הבקשה שלך...";
+    chatWindow.appendChild(loadingMessage);
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: message, session_id: sessionId,
+        }),
+      });
+
+      const data = await response.json();
+
+      loadingMessage.textContent =
+        data.answer || "לא התקבלה תשובה מהשרת.";
+    } catch (error) {
+      loadingMessage.textContent =
+        "לא הצלחתי להתחבר לשרת. ודאי שה-backend רץ על פורט 8001.";
+      console.error(error);
+    }
+
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  });
+}

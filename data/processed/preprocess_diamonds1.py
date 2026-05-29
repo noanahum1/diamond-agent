@@ -118,3 +118,5 @@ df_diamonds['price_category_encoded'] = df_diamonds['price_category'].map(price_
 print("Encoded price category column added successfully.")
 df_diamonds.to_csv(file_path_1, index=False)
 print("File updated successfully with price category columns.")
+
+print(df_diamonds.columns)
