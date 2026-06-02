@@ -1,4 +1,4 @@
-import os
+import os 
 import json
 import re
 from dotenv import load_dotenv
@@ -11,6 +11,8 @@ load_dotenv(dotenv_path)
 class GeminiClient:
     def __init__(self):
         api_key = os.getenv("GEMINI_API_KEY")
+        print("API key loaded:", bool(api_key))
+        print("API key prefix:", api_key[:6] if api_key else None)
 
         if not api_key:
             self.is_available = False
@@ -19,8 +21,8 @@ class GeminiClient:
             return
 
         self.is_available = True
-        self.client = genai.Client(api_key=api_key, http_options={'api_version': 'v1'})
-        self.model = "models/gemini-1.5-flash"
+        self.client = genai.Client(api_key=api_key)
+        self.model = "gemini-3.1-flash-lite"
 
     def generate_text(self, prompt: str) -> str | None:
         if not self.is_available:
@@ -31,6 +33,8 @@ class GeminiClient:
                 model=self.model,
                 contents=prompt
             )
+            print("Raw Gemini response:", response)
+            print("Response text:", response.text if response else None)
 
             if not response or not response.text:
                 return None
