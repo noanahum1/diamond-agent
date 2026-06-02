@@ -10,20 +10,16 @@ load_dotenv()
 class GeminiClient:
     def __init__(self):
         api_key = os.getenv("GEMINI_API_KEY")
+
         if not api_key:
-            print("❌ Error: API Key not found in .env file!")
             self.is_available = False
+            self.client = None
+            self.model = None
             return
 
         self.is_available = True
-        # שימוש בגרסה היציבה ביותר ובשם מודל נקי
-        try:
-            self.client = genai.Client(api_key=api_key) 
-            self.model = "gemini-1.5-flash"
-            print(f"✅ Client initialized. Model: {self.model}")
-        except Exception as e:
-            print(f"❌ Initialization error: {e}")
-            self.is_available = False
+        self.client = genai.Client(api_key=api_key, http_options={'api_version': 'v1b'})
+        self.model = "models/gemini-1.5-flash"
 
     def generate_text(self, prompt: str) -> str | None:
         if not self.is_available:
