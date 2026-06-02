@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import errors
 
-load_dotenv()
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(dotenv_path)
 
 class GeminiClient:
     def __init__(self):
