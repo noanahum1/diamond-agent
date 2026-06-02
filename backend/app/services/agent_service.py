@@ -211,7 +211,7 @@ class AgentService:
 
     def _format_recommendations(self, recommendations, original_budget, currency):
         answer = (
-            f"מצאתי 5 יהלומים שמתאימים הכי קרוב לבקשה שלך, "
+            f"מצאתי את היהלומים שמתאימים הכי קרוב לבקשה שלך, "
             f"בהתאם לתקציב של {original_budget:,.0f} {currency} 💎\n\n"
         )
 
@@ -253,7 +253,7 @@ class AgentService:
             "shape": "צורה מתארת את המבנה החיצוני של היהלום, למשל Round, Oval, Cushion או Princess.",
             "polish": "Polish מתאר את איכות הגימור והליטוש של פני היהלום.",
             "symmetry": "Symmetry מתארת עד כמה חלקי היהלום סימטריים ומדויקים ביחס אחד לשני.",
-            "fluorescence": "Fluorescence מתארת תגובה של היהלום לאור אולטרה־סגול. בחלק מהמקרים זה יכול להשפיע על המראה והמחיר.",
+            "fluorescence": "Fluorescence מתארת תגובה של היהלום לאור אולטרה-סגול. בחלק מהמקרים זה יכול להשפיע על המראה והמחיר.",
             "girdle": "Girdle הוא החלק ההיקפי שמפריד בין החלק העליון והתחתון של היהלום."
         }
 
