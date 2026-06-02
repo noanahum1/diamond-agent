@@ -18,7 +18,7 @@ class GeminiClient:
             return
 
         self.is_available = True
-        self.client = genai.Client(api_key=api_key)
+        self.client = genai.Client(api_key=api_key, http_options={'api_version': 'v1beta'})
         self.model = "gemini-1.5-flash"
 
     def generate_text(self, prompt: str) -> str | None:
