@@ -9,10 +9,10 @@ class AgentService:
 
         self.currency_rates_to_usd = {
             "USD": 1,
-            "ILS": 1 / 2.81,
-            "NIS": 1 / 2.81,
-            "EUR": 1 / 3.28,
-            "GBP": 1 / 3.79,
+            "ILS": 1 / 3.7,
+            "NIS": 1 / 3.7,
+            "EUR": 1.08,
+            "GBP": 1.27,
         }
 
     def process_message(self, message, session_id=None):
