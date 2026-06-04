@@ -76,6 +76,23 @@ class AgentService:
     def _try_fast_message(self, message, session):
         normalized = message.lower().strip()
 
+        end_messages = [
+            "תודה", "תודה רבה", "תודה!", "תודה רבה!",
+            "ביי", "בייי", "להתראות", "סיימתי",
+            "זהו", "מעולה תודה", "אחלה תודה",
+            "thanks", "thank you", "bye"
+        ]
+
+        if normalized in end_messages:
+            session["last_intent"] = "conversation_end"
+            return {
+                "answer": (
+                    "בשמחה 💎😊\n"
+                    "אני כאן לכל שאלה נוספת על יהלומים, השוואות, מחירים או בחירת יהלום מתאים."
+                ),
+                "intent": "conversation_end"
+            }
+
         start_messages = [
             "היי", "הי", "שלום", "אהלן",
             "אני רוצה יהלום", "רוצה יהלום",
