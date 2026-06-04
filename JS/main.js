@@ -116,7 +116,7 @@ if (chatForm) {
         data.answer ? data.answer.trim() : "לא התקבלה תשובה מהשרת.";
     } catch (error) {
       loadingMessage.textContent =
-        "לא הצלחתי להתחבר לשרת. ודאי שה-backend רץ על פורט 8001.";
+        "לא הצלחתי להתחבר לשרת.\nנא לבדוק שהשרת ב־Render פעיל ושאין שגיאת CORS או שגיאת API.";
       console.error(error);
     }
 
