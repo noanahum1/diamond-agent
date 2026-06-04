@@ -52,91 +52,87 @@ class GeminiClient:
     def extract_user_intent(self, user_message: str, session_context: dict | None = None) -> dict:
         session_context = session_context or {}
 
+        active_context = {
+            key: value
+            for key, value in session_context.items()
+            if value is not None
+        }
+
         prompt = f"""
-You are the language understanding layer for a Diamond Advisor Agent.
+    You are the NLU layer of a Diamond Advisor Agent.
 
-Your job:
-- Understand the user's intent.
-- Extract all diamond-related parameters.
-- Understand Hebrew, English, transliteration, spelling mistakes, and partial answers.
-- Keep the current session context in mind.
-- Return ONLY valid JSON.
-- Do not recommend diamonds.
-- Do not explain diamond concepts here.
-- Do not expose internal field names to the user.
-- Do not invent diamond data.
-- Do not calculate prices.
+    Task:
+    Return ONLY valid JSON. No explanations.
 
-Current session context:
-{json.dumps(session_context, ensure_ascii=False)}
+    Understand Hebrew, English, transliteration, spelling mistakes, and partial answers.
+    Extract diamond intent and parameters.
+    Keep existing context unless the user clearly changes it-add the new parameter to the previous context.
+    The conversation is continuous.
+    If the user gives a short reply such as confirmation, rejection,
+    agreement, or a partial answer, interpret it according to the previous
+    agent message and session context.
 
-User message:
-{user_message}
+    Examples:
+    Agent: Would you like to know how cut affects price?
+    User: Sure
+    => continue explaining cut impact, do not start a new recommendation flow.
 
-Return JSON with this exact structure:
-{{
-  "intent": "recommendation",
-  "is_diamond_related": true,
-  "language": "he",
-  "budget": null,
-  "currency": null,
-  "shape": null,
-  "cut": null,
-  "color": null,
-  "clarity": null,
-  "carat": null,
-  "depth": null,
-  "table": null,
-  "polish": null,
-  "symmetry": null,
-  "girdle": null,
-  "diamond_type": null,
-  "length_width_ratio": null,
-  "preference": null,
-  "topic": null,
-  "needs_clarification": false,
-  "clarification_question": null
-}}
+    Agent: Which currency?
+    User: Euro
+    => update currency only.
+    Normalize extracted values to dataset-style English values.
+    Do not expose internal field names to the user.
 
-Allowed intents:
-recommendation, explanation, comparison, similarity, out_of_scope, clarification
+    Context:
+    {json.dumps(active_context, ensure_ascii=False)}
 
-Language rules:
-- If the user writes in Hebrew, language must be "he".
-- If the user writes in English, language must be "en".
-- Clarification questions must be in the same language as the user.
+    User:
+    {user_message}
 
-Currency normalization rules:
-- דולר, דולרים, usd, dollar, dollars -> USD
-- שקל, שקלים, ש"ח, שח, nis, ils -> ILS
-- יורן, יןרו ,יורו, euro, eur -> EUR
-- פאונד, pound, gbp -> GBP
+    Return exactly:
+    {{
+    "intent": "recommendation",
+    "is_diamond_related": true,
+    "language": "he",
+    "budget": null,
+    "currency": null,
+    "shape": null,
+    "cut": null,
+    "color": null,
+    "clarity": null,
+    "carat": null,
+    "depth": null,
+    "table": null,
+    "polish": null,
+    "symmetry": null,
+    "girdle": null,
+    "diamond_type": null,
+    "length_width_ratio": null,
+    "preference": null,
+    "topic": null,
+    "needs_clarification": false,
+    "clarification_question": null
+    }}
 
-Diamond value normalization:
-- Normalize diamond parameters to common dataset values when clear.
-- Examples:
-  - עגול / ראונד / round -> Round
-  - קושיין / cushion -> Cushion
-  - אובל / oval -> Oval
-  - פרינסס / princess -> Princess
-  - אמרלד / emerald -> Emerald
-  - צבע D -> D
-  - ניקיון VS1 -> VS1
-  - 4 קראט / 4 carat / 4ct -> carat: 4
+    Allowed intents:
+    recommendation, explanation, comparison, similarity, out_of_scope, clarification
 
-Context rules:
-- If the user adds a new requirement, keep previous requirements from the session.
-- If the user writes only a number and the previous missing field is budget, treat it as budget.
-- If the user writes only a currency and budget already exists, treat it as currency.
-- If the user says "in addition", "also", "בנוסף", "גם", add the new parameter to the previous context.
-- Do not clear existing parameters unless the user clearly changes them.
-
-Intent rules:
-- If the user asks for a diamond recommendation, use recommendation.
-- If the user asks what a diamond concept means, use explanation and fill topic.
-- If the user asks about shapes, cuts, clarity, color, carat, polish, symmetry, girdle, fluorescence, depth or table, it is diamond-related.
-- If the user asks about a non-diamond topic, set intent to out_of_scope and is_diamond_related to false.
-"""
+    Rules:
+    - Hebrew input -> language "he"; English input -> "en".
+    - Clarification questions must be in the same language as the user.
+    - Non-diamond topic -> is_diamond_related false, intent out_of_scope.
+    - Explanation question -> intent explanation and fill topic.
+    - Recommendation/search/choose/find diamond -> intent recommendation.
+    - If the user asks about shapes, cuts, clarity, color, carat, polish, symmetry, girdle, fluorescence, depth, table or any other diamond parameter, it is diamond-related.
+    - If user writes only a number and context last_question is budget -> budget.
+    - If user writes only currency and budget exists -> currency.
+    - Currency normalization: dollar/usd/דולר -> USD, shekel/ils/nis/שקל/שח/ש"ח -> ILS, euro/eur/יורו -> EUR, pound/gbp/פאונד -> GBP.
+    - Return diamond values in English dataset format only, not Hebrew.
+    - Examples: עגול/ראונד/round -> Round, אובל/oval -> Oval, אמרלד/emerald -> Emerald, קושן/cushion -> Cushion, פרינסס/princess -> Princess.
+    - Color: D/E/F/G/H/I/J etc.
+    - Clarity: IF, VVS1, VVS2, VS1, VS2, SI1, SI2 etc.
+    - Carat examples: 4 קראט, 4ct, 4 carat -> 4.
+    """
 
         raw_response = self.generate_text(prompt)
 
@@ -144,7 +140,7 @@ Intent rules:
             return self._fallback_intent()
 
         return self._parse_json_response(raw_response)
-
+    
     def generate_diamond_explanation(
         self,
         user_message: str,

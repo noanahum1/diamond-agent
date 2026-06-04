@@ -389,6 +389,13 @@ ul li {
   border: 1px solid rgba(180, 184, 190, 0.45);
 }
 
+.welcome-message {
+  padding-top: 1px;
+  padding-bottom: 18px;
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
 .user-message {
   margin-right: auto;
   background: linear-gradient(135deg, #2f3033, #5f6268);

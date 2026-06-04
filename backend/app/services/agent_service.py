@@ -1,5 +1,7 @@
+import re
 from app.services.recommendation_service import RecommendationService
 from app.gemini_client import GeminiClient
+
 
 class AgentService:
     def __init__(self):
@@ -29,8 +31,18 @@ class AgentService:
 
         session = self.sessions[session_id]
 
+        followup_result = self._handle_followup_confirmation(message, session)
+
+        if followup_result:
+            return followup_result
+
+        fast_result = self._try_fast_message(message, session)
+        if fast_result:
+            return fast_result
+
         gemini_data = self.gemini.extract_user_intent(message, session)
         self._update_session_from_gemini(session, gemini_data)
+        self._normalize_session_values(session)
 
         language = session.get("language") or "he"
 
@@ -64,16 +76,91 @@ class AgentService:
                 "intent": intent
             }
 
+        return self._generate_recommendation_response(session)
+
+    def _try_fast_message(self, message, session):
+        normalized = message.lower().strip()
+
+        start_messages = [
+            "היי", "הי", "שלום", "אהלן",
+            "אני רוצה יהלום", "רוצה יהלום",
+            "מחפשת יהלום", "מחפש יהלום",
+            "צריכה יהלום", "צריך יהלום"
+        ]
+
+        if normalized in start_messages:
+            session["last_question"] = "budget"
+            session["last_intent"] = "start_recommendation"
+            return {
+                "answer": (
+                    "בשמחה 💎\n\n"
+                    "מה התקציב המשוער שלך ובאיזה מטבע?\n"
+                    "אפשר לכתוב למשל: 5,000 שקל או 1,500 דולר."
+                ),
+                "intent": "start_recommendation"
+            }
+
+        fast_data = self._extract_fast_budget_currency(message)
+        fast_shape = self._extract_fast_shape(message)
+
+        if fast_shape:
+            session["shape"] = fast_shape
+
+        if fast_data:
+            if fast_data.get("budget") is not None:
+                session["budget"] = fast_data["budget"]
+
+            if fast_data.get("currency") is not None:
+                session["currency"] = fast_data["currency"]
+
+            self._normalize_session_values(session)
+
+            if session.get("budget") and session.get("currency"):
+                return self._generate_recommendation_response(session)
+
+            if session.get("budget") and not session.get("currency"):
+                session["last_question"] = "currency"
+                return {
+                    "answer": self._missing_currency_message(session.get("language") or "he"),
+                    "intent": "missing_currency"
+                }
+
+        return None
+
+    def _extract_fast_budget_currency(self, message):
+        normalized = message.lower().replace(",", "").strip()
+
+        currency = None
+
+        if any(word in normalized for word in ["דולר", "דולרים", "usd", "dollar", "dollars"]):
+            currency = "USD"
+        elif any(word in normalized for word in ["שקל", "שקלים", "שח", 'ש"ח', "ils", "nis"]):
+            currency = "ILS"
+        elif any(word in normalized for word in ["יורו", "euro", "eur"]):
+            currency = "EUR"
+        elif any(word in normalized for word in ["פאונד", "pound", "gbp"]):
+            currency = "GBP"
+
+        numbers = re.findall(r"\d+(?:\.\d+)?", normalized)
+        budget = float(numbers[0]) if numbers else None
+
+        if budget is None and currency is None:
+            return None
+
+        return {
+            "budget": budget,
+            "currency": currency
+        }
+
+    def _generate_recommendation_response(self, session):
+        language = session.get("language") or "he"
         budget = session.get("budget")
         currency = session.get("currency")
 
         if not budget:
             session["last_question"] = "budget"
             return {
-                "answer": (
-                    "אשמח לעזור לך לבחור יהלום 😊\n\n"
-                    "מה התקציב המשוער שלך?"
-                ),
+                "answer": "אשמח לעזור לך לבחור יהלום 😊\n\nמה התקציב המשוער שלך?",
                 "intent": "missing_budget"
             }
 
@@ -131,13 +218,11 @@ class AgentService:
                 "intent": "no_results"
             }
 
-        answer = self._format_recommendations(recommendations, budget, currency)
-
         session["last_intent"] = "recommendation"
         session["last_question"] = "additional_filters"
 
         return {
-            "answer": answer,
+            "answer": self._format_recommendations(recommendations, budget, currency, session),
             "intent": "recommendation"
         }
 
@@ -161,34 +246,53 @@ class AgentService:
             "topic": None,
             "language": "he",
             "last_question": None,
+            "last_agent_message": None,
             "last_intent": None
         }
 
     def _update_session_from_gemini(self, session, gemini_data):
         fields = [
-            "budget",
-            "currency",
-            "shape",
-            "cut",
-            "color",
-            "clarity",
-            "carat",
-            "depth",
-            "table",
-            "polish",
-            "symmetry",
-            "girdle",
-            "diamond_type",
-            "length_width_ratio",
-            "preference",
-            "topic",
-            "language"
+            "budget", "currency", "shape", "cut", "color", "clarity",
+            "carat", "depth", "table", "polish", "symmetry", "girdle",
+            "diamond_type", "length_width_ratio", "preference", "topic", "language"
         ]
 
         for field in fields:
             value = gemini_data.get(field)
             if value is not None:
                 session[field] = value
+
+    def _normalize_session_values(self, session):
+        shape_mapping = {
+            "עגול": "Round",
+            "ראונד": "Round",
+            "round": "Round",
+            "oval": "Oval",
+            "אובל": "Oval",
+            "princess": "Princess",
+            "פרינסס": "Princess",
+            "cushion": "Cushion",
+            "קושן": "Cushion",
+            "קושיין": "Cushion",
+            "emerald": "Emerald",
+            "אמרלד": "Emerald",
+        }
+
+        if session.get("shape"):
+            shape = str(session["shape"]).strip()
+            session["shape"] = shape_mapping.get(shape.lower(), shape)
+
+        if session.get("cut"):
+            session["cut"] = str(session["cut"]).strip()
+
+        if session.get("color"):
+            session["color"] = str(session["color"]).strip().upper()
+
+        if session.get("clarity"):
+            session["clarity"] = str(session["clarity"]).strip().upper()
+
+        if session.get("currency"):
+            session["currency"] = str(session["currency"]).strip().upper()
 
     def _convert_to_usd(self, budget, currency):
         if not currency:
@@ -204,49 +308,84 @@ class AgentService:
 
     def _requires_diamonds2(self, session):
         diamonds2_only_fields = [
-            "shape",
-            "polish",
-            "symmetry",
-            "girdle",
-            "diamond_type",
-            "length_width_ratio"
+            "shape", "polish", "symmetry", "girdle",
+            "diamond_type", "length_width_ratio"
         ]
 
         return any(session.get(field) for field in diamonds2_only_fields)
 
-    def _format_recommendations(self, recommendations, original_budget, currency):
+    def _format_recommendations(self, recommendations, original_budget, currency, session):
         answer = (
             f"מצאתי את היהלומים שמתאימים הכי קרוב לבקשה שלך, "
             f"בהתאם לתקציב של {float(original_budget):,.0f} {currency} 💎\n\n"
         )
 
+        requested_extra_fields = {
+            "shape": session.get("shape"),
+            "depth": session.get("depth"),
+            "table": session.get("table"),
+            "polish": session.get("polish"),
+            "symmetry": session.get("symmetry"),
+            "girdle": session.get("girdle"),
+            "diamond_type": session.get("diamond_type"),
+            "length_width_ratio": session.get("length_width_ratio"),
+        }
+
         for i, diamond in enumerate(recommendations, start=1):
             if "Shape" in diamond:
+                if requested_extra_fields["shape"]:
+                    answer += f"{i}. צורה: {diamond.get('Shape')}\n"
+                else:
+                    answer += f"{i}.\n"
+
                 answer += (
-                    f"{i}. צורה: {diamond.get('Shape')}\n"
                     f"   קראט: {diamond.get('Carat')}\n"
                     f"   חיתוך: {diamond.get('Cut')}\n"
                     f"   צבע: {diamond.get('Color')}\n"
                     f"   ניקיון: {diamond.get('Clarity')}\n"
-                    f"   ליטוש: {diamond.get('Polish')}\n"
-                    f"   סימטריה: {diamond.get('Symmetry')}\n"
-                    f"   Girdle: {diamond.get('Girdle')}\n"
-                    f"   סוג: {diamond.get('Type')}\n"
-                    f"   מחיר: {diamond.get('Price')}$\n\n"
                 )
+
+                if requested_extra_fields["polish"]:
+                    answer += f"   ליטוש: {diamond.get('Polish')}\n"
+
+                if requested_extra_fields["symmetry"]:
+                    answer += f"   סימטריה: {diamond.get('Symmetry')}\n"
+
+                if requested_extra_fields["girdle"]:
+                    answer += f"   Girdle: {diamond.get('Girdle')}\n"
+
+                if requested_extra_fields["diamond_type"]:
+                    answer += f"   סוג: {diamond.get('Type')}\n"
+
+                if requested_extra_fields["depth"]:
+                    answer += f"   עומק: {diamond.get('Depth %')}\n"
+
+                if requested_extra_fields["table"]:
+                    answer += f"   Table: {diamond.get('Table %')}\n"
+
+                if requested_extra_fields["length_width_ratio"]:
+                    answer += f"   יחס אורך-רוחב: {diamond.get('Length/Width Ratio')}\n"
+
+                answer += f"   מחיר: {diamond.get('Price')}$\n\n"
+
             else:
                 answer += (
-                    f"{i}. קראט: {diamond.get('carat')}\n"
+                    f"{i}.\n"
+                    f"   קראט: {diamond.get('carat')}\n"
                     f"   חיתוך: {diamond.get('cut')}\n"
                     f"   צבע: {diamond.get('color')}\n"
                     f"   ניקיון: {diamond.get('clarity')}\n"
-                    f"   עומק: {diamond.get('depth')}\n"
-                    f"   Table: {diamond.get('table')}\n"
-                    f"   מחיר: {diamond.get('price')}$\n\n"
                 )
 
-        answer += "רוצה שאדייק את ההמלצה לפי פרמטר נוסף כמו קראט, צבע, ניקיון, חיתוך או צורה?"
+                if requested_extra_fields["depth"]:
+                    answer += f"   עומק: {diamond.get('depth')}\n"
 
+                if requested_extra_fields["table"]:
+                    answer += f"   Table: {diamond.get('table')}\n"
+
+                answer += f"   מחיר: {diamond.get('price')}$\n\n"
+
+        answer += "\n\n💎 רוצה שאדייק את ההמלצה לפי פרמטר נוסף? ☺️✨"
         return answer
 
     def _handle_explanation(self, message, session):
@@ -268,6 +407,8 @@ class AgentService:
             )
 
         session["last_intent"] = "explanation"
+        session["last_agent_message"] = answer
+
         return {
             "answer": answer,
             "intent": "explanation"
@@ -342,3 +483,23 @@ class AgentService:
             return "תקציב בלבד"
 
         return ", ".join(parts)
+
+    def _extract_fast_shape(self, message):
+        normalized = message.lower().strip()
+
+        if any(word in normalized for word in ["עגול", "ראונד", "round"]):
+            return "Round"
+
+        if any(word in normalized for word in ["אובל", "oval"]):
+            return "Oval"
+
+        if any(word in normalized for word in ["פרינסס", "princess"]):
+            return "Princess"
+
+        if any(word in normalized for word in ["קושן", "קושיין", "cushion"]):
+            return "Cushion"
+
+        if any(word in normalized for word in ["אמרלד", "emerald"]):
+            return "Emerald"
+
+        return None

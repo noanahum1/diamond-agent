@@ -26,6 +26,13 @@ def health_check():
         "message": "Diamond Advisor Agent API is running"
     }
 
+@app.get("/warmup")
+def warmup():
+    return {
+        "status": "ok",
+        "message": "Server is warm"
+    }
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
     result = agent_service.process_message(

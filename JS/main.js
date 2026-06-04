@@ -57,6 +57,12 @@ function showInfo() {
 }
 
 const API_URL = "https://diamond-agent-fvvd.onrender.com/chat";
+const WARMUP_URL = "https://diamond-agent-fvvd.onrender.com/warmup";
+
+fetch(WARMUP_URL).catch((error) => {
+  console.log("Warmup request failed:", error);
+});
+
 const sessionId = crypto.randomUUID();
 
 const chatForm = document.getElementById("chat-form");
@@ -69,7 +75,7 @@ function addMessage(text, sender) {
   messageDiv.className =
     sender === "user" ? "user-message" : "bot-message";
 
-  messageDiv.textContent = text;
+  messageDiv.textContent = text.trim();
 
   chatWindow.appendChild(messageDiv);
   chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -90,7 +96,7 @@ if (chatForm) {
 
     const loadingMessage = document.createElement("div");
     loadingMessage.className = "bot-message";
-    loadingMessage.textContent = "בודק את הבקשה שלך...";
+    loadingMessage.textContent = "⏳ בודק עבורך...";
     chatWindow.appendChild(loadingMessage);
 
     try {
@@ -107,7 +113,7 @@ if (chatForm) {
       const data = await response.json();
 
       loadingMessage.textContent =
-        data.answer || "לא התקבלה תשובה מהשרת.";
+        data.answer ? data.answer.trim() : "לא התקבלה תשובה מהשרת.";
     } catch (error) {
       loadingMessage.textContent =
         "לא הצלחתי להתחבר לשרת. ודאי שה-backend רץ על פורט 8001.";
