@@ -31,11 +31,6 @@ class AgentService:
 
         session = self.sessions[session_id]
 
-        followup_result = self._handle_followup_confirmation(message, session)
-
-        if followup_result:
-            return followup_result
-
         fast_result = self._try_fast_message(message, session)
         if fast_result:
             return fast_result
