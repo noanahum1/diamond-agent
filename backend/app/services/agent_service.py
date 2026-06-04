@@ -57,6 +57,16 @@ class AgentService:
 
         intent = gemini_data.get("intent")
 
+        if intent == "conversation_end":
+            session["last_intent"] = "conversation_end"
+            return {
+                "answer": (
+                    "בשמחה 💎😊\n"
+                    "אני כאן לכל שאלה נוספת על יהלומים, השוואות, מחירים או בחירת יהלום מתאים."
+                ),
+                "intent": "conversation_end"
+            }
+
         if intent == "explanation":
             return self._handle_explanation(message, session)
 
@@ -80,7 +90,7 @@ class AgentService:
             "תודה", "תודה רבה", "תודה!", "תודה רבה!",
             "ביי", "בייי", "להתראות", "סיימתי",
             "זהו", "מעולה תודה", "אחלה תודה",
-            "thanks", "thank you", "bye"
+            "thanks", "thank you", "bye", "לא", "לא תודה", "לא, תודה", "no", "no thanks"
         ]
 
         if normalized in end_messages:

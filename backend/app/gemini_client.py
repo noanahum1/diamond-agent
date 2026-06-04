@@ -115,8 +115,7 @@ class GeminiClient:
     }}
 
     Allowed intents:
-    recommendation, explanation, comparison, similarity, out_of_scope, clarification
-
+    recommendation, explanation, comparison, similarity, out_of_scope, clarification, conversation_end
     Rules:
     - Hebrew input -> language "he"; English input -> "en".
     - Clarification questions must be in the same language as the user.
@@ -133,6 +132,8 @@ class GeminiClient:
     - Clarity: IF, VVS1, VVS2, VS1, VS2, SI1, SI2 etc.
     - Carat examples: 4 קראט, 4ct, 4 carat -> 4.
     - 2 קראט -> carat: 2, budget: null, currency: null
+    - If the agent previously asked whether the user needs anything else, and the user answers negatively such as "לא", "לא תודה", "no", "no thanks", understand that the conversation is ending.
+    - In that case return intent: "conversation_end", is_diamond_related: true, needs_clarification: false.
     Important numeric extraction rules:
     - Never assume that a standalone number is a budget.
     - A number followed by carat, ct, קראט, קרט means diamond carat only.
