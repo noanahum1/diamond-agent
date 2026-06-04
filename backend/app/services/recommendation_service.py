@@ -13,7 +13,10 @@ class RecommendationService:
         preference: str = "balanced",
         cut: str = None,
         color: str = None,
-        clarity: str = None
+        clarity: str = None,
+        carat: float = None,
+        depth: float = None,
+        table: float = None
     ):
         diamonds = self.diamond_service.get_diamonds_by_budget(budget)
 
@@ -23,6 +26,9 @@ class RecommendationService:
         diamonds = self._filter_exact(diamonds, "cut", cut)
         diamonds = self._filter_exact(diamonds, "color", color)
         diamonds = self._filter_exact(diamonds, "clarity", clarity)
+        diamonds = self._filter_numeric_range(diamonds, "carat", carat, tolerance=0.05)
+        diamonds = self._filter_numeric_range(diamonds, "depth", depth, tolerance=1.0)
+        diamonds = self._filter_numeric_range(diamonds, "table", table, tolerance=1.0)
 
         if diamonds.empty:
             return []
@@ -65,6 +71,9 @@ class RecommendationService:
         cut: str = None,
         color: str = None,
         clarity: str = None,
+        carat: float = None,
+        depth: float = None,
+        table: float = None,
         polish: str = None,
         symmetry: str = None,
         girdle: str = None,
@@ -85,14 +94,15 @@ class RecommendationService:
         diamonds = self._filter_exact(diamonds, "Girdle", girdle)
         diamonds = self._filter_exact(diamonds, "Type", diamond_type)
 
-        if length_width_ratio is not None and "Length/Width Ratio" in diamonds.columns:
-            diamonds = diamonds[
-                np.isclose(
-                    diamonds["Length/Width Ratio"].astype(float),
-                    float(length_width_ratio),
-                    atol=0.05
-                )
-            ].copy()
+        diamonds = self._filter_numeric_range(diamonds, "Carat", carat, tolerance=0.05)
+        diamonds = self._filter_numeric_range(diamonds, "Depth %", depth, tolerance=1.0)
+        diamonds = self._filter_numeric_range(diamonds, "Table %", table, tolerance=1.0)
+        diamonds = self._filter_numeric_range(
+            diamonds,
+            "Length/Width Ratio",
+            length_width_ratio,
+            tolerance=0.05
+        )
 
         if diamonds.empty:
             return []
@@ -160,6 +170,23 @@ class RecommendationService:
         return diamonds[
             diamonds[column_name].astype(str).str.lower().str.strip()
             == str(value).lower().strip()
+        ].copy()
+
+    def _filter_numeric_range(self, diamonds, column_name: str, value, tolerance: float):
+        if value is None:
+            return diamonds
+
+        if column_name not in diamonds.columns:
+            return diamonds
+
+        numeric_values = diamonds[column_name].astype(float)
+
+        return diamonds[
+            np.isclose(
+                numeric_values,
+                float(value),
+                atol=tolerance
+            )
         ].copy()
 
     def _filter_by_price_range(self, diamonds, price_column: str, budget: float):

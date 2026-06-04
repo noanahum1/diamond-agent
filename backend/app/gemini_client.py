@@ -1,18 +1,16 @@
-import os 
+import os
 import json
 import re
 from dotenv import load_dotenv
 from google import genai
 from google.genai import errors
 
-dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+dotenv_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(dotenv_path)
 
 class GeminiClient:
     def __init__(self):
         api_key = os.getenv("GEMINI_API_KEY")
-        print("API key loaded:", bool(api_key))
-        print("API key prefix:", api_key[:6] if api_key else None)
 
         if not api_key:
             self.is_available = False
@@ -33,8 +31,6 @@ class GeminiClient:
                 model=self.model,
                 contents=prompt
             )
-            print("Raw Gemini response:", response)
-            print("Response text:", response.text if response else None)
 
             if not response or not response.text:
                 return None
@@ -57,13 +53,19 @@ class GeminiClient:
         session_context = session_context or {}
 
         prompt = f"""
-You are a language understanding layer for a Diamond Advisor Agent.
+You are the language understanding layer for a Diamond Advisor Agent.
 
-Return ONLY valid JSON.
-Do not recommend diamonds.
-Do not invent diamond data.
-Do not calculate prices.
-Do not add explanations outside the JSON.
+Your job:
+- Understand the user's intent.
+- Extract all diamond-related parameters.
+- Understand Hebrew, English, transliteration, spelling mistakes, and partial answers.
+- Keep the current session context in mind.
+- Return ONLY valid JSON.
+- Do not recommend diamonds.
+- Do not explain diamond concepts here.
+- Do not expose internal field names to the user.
+- Do not invent diamond data.
+- Do not calculate prices.
 
 Current session context:
 {json.dumps(session_context, ensure_ascii=False)}
@@ -75,14 +77,21 @@ Return JSON with this exact structure:
 {{
   "intent": "recommendation",
   "is_diamond_related": true,
+  "language": "he",
   "budget": null,
   "currency": null,
   "shape": null,
   "cut": null,
   "color": null,
   "clarity": null,
+  "carat": null,
+  "depth": null,
+  "table": null,
   "polish": null,
   "symmetry": null,
+  "girdle": null,
+  "diamond_type": null,
+  "length_width_ratio": null,
   "preference": null,
   "topic": null,
   "needs_clarification": false,
@@ -92,16 +101,41 @@ Return JSON with this exact structure:
 Allowed intents:
 recommendation, explanation, comparison, similarity, out_of_scope, clarification
 
-Rules:
-- עגול, עגולה, ראונד = round
-- קושיין, כושיין, כושין, קושין = cushion
-- דולר, usd, dollar = USD
-- שקל, שח, nis, ils = ILS
-- יורו, euro, eur = EUR
-- פאונד, pound, gbp = GBP
-- If the user writes only a number and the session context indicates budget is missing, treat it as budget.
+Language rules:
+- If the user writes in Hebrew, language must be "he".
+- If the user writes in English, language must be "en".
+- Clarification questions must be in the same language as the user.
+
+Currency normalization rules:
+- דולר, דולרים, usd, dollar, dollars -> USD
+- שקל, שקלים, ש"ח, שח, nis, ils -> ILS
+- יורן, יןרו ,יורו, euro, eur -> EUR
+- פאונד, pound, gbp -> GBP
+
+Diamond value normalization:
+- Normalize diamond parameters to common dataset values when clear.
+- Examples:
+  - עגול / ראונד / round -> Round
+  - קושיין / cushion -> Cushion
+  - אובל / oval -> Oval
+  - פרינסס / princess -> Princess
+  - אמרלד / emerald -> Emerald
+  - צבע D -> D
+  - ניקיון VS1 -> VS1
+  - 4 קראט / 4 carat / 4ct -> carat: 4
+
+Context rules:
+- If the user adds a new requirement, keep previous requirements from the session.
+- If the user writes only a number and the previous missing field is budget, treat it as budget.
+- If the user writes only a currency and budget already exists, treat it as currency.
+- If the user says "in addition", "also", "בנוסף", "גם", add the new parameter to the previous context.
+- Do not clear existing parameters unless the user clearly changes them.
+
+Intent rules:
+- If the user asks for a diamond recommendation, use recommendation.
+- If the user asks what a diamond concept means, use explanation and fill topic.
+- If the user asks about shapes, cuts, clarity, color, carat, polish, symmetry, girdle, fluorescence, depth or table, it is diamond-related.
 - If the user asks about a non-diamond topic, set intent to out_of_scope and is_diamond_related to false.
-- If the user asks for an explanation of a diamond parameter, set intent to explanation and fill topic.
 """
 
         raw_response = self.generate_text(prompt)
@@ -110,6 +144,43 @@ Rules:
             return self._fallback_intent()
 
         return self._parse_json_response(raw_response)
+
+    def generate_diamond_explanation(
+        self,
+        user_message: str,
+        topic: str | None,
+        language: str = "he",
+        session_context: dict | None = None
+    ) -> str | None:
+        session_context = session_context or {}
+
+        prompt = f"""
+You are a professional Diamond Advisor Agent.
+
+Answer the user's diamond-related question naturally and professionally.
+
+Rules:
+- Answer only about diamonds.
+- Do not use a fixed answer bank.
+- Do not invent diamond inventory or prices.
+- Keep the answer clear, helpful, and not too long.
+- If the user asks about shapes, explain actual diamond shapes such as Round, Cushion, Princess, Oval, Emerald, Pear, Radiant, Heart and others when relevant.
+- If the user asks about a specific parameter, explain that parameter.
+- Respond in this language: {language}
+- Every response MUST end with one natural follow-up question that continues the conversation.
+- Do not expose internal JSON, field names, code, dataset names, or CSV names.
+
+Current session context:
+{json.dumps(session_context, ensure_ascii=False)}
+
+Topic:
+{topic}
+
+User message:
+{user_message}
+"""
+
+        return self.generate_text(prompt)
 
     def _parse_json_response(self, text: str) -> dict:
         try:
@@ -129,29 +200,26 @@ Rules:
         return {
             "intent": "clarification",
             "is_diamond_related": True,
+            "language": "he",
             "budget": None,
             "currency": None,
             "shape": None,
             "cut": None,
             "color": None,
             "clarity": None,
+            "carat": None,
+            "depth": None,
+            "table": None,
             "polish": None,
             "symmetry": None,
+            "girdle": None,
+            "diamond_type": None,
+            "length_width_ratio": None,
             "preference": None,
             "topic": None,
             "needs_clarification": True,
             "clarification_question": (
                 "יש כרגע עומס זמני על מנגנון הבנת השפה שלי 😊\n"
-                "אפשר לכתוב לי שוב בצורה קצרה, למשל: יהלום עגול עד 1000 דולר."
+                "אפשר לכתוב לי שוב בצורה קצרה, למשל: יהלום עגול עד 1000 דולר?"
             )
         }
-
-if __name__ == "__main__":
-    client = GeminiClient()
-
-    result = client.extract_user_intent(
-        "אני מחפשת יהלום עגול עד 5000 שקל",
-        {"last_question": None}
-    )
-
-    print(json.dumps(result, ensure_ascii=False, indent=2))

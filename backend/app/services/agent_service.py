@@ -1,4 +1,3 @@
-import re
 from app.services.recommendation_service import RecommendationService
 from app.gemini_client import GeminiClient
 
@@ -31,37 +30,36 @@ class AgentService:
         session = self.sessions[session_id]
 
         gemini_data = self.gemini.extract_user_intent(message, session)
+        self._update_session_from_gemini(session, gemini_data)
+
+        language = session.get("language") or "he"
 
         if gemini_data.get("needs_clarification"):
             return {
                 "answer": gemini_data.get("clarification_question")
-                or "לא הצלחתי להבין לגמרי את הבקשה 😊 תוכלי לנסח אותה שוב?",
+                or self._default_clarification_question(language),
                 "intent": "clarification"
             }
 
         if not gemini_data.get("is_diamond_related", True):
             session["last_intent"] = "out_of_scope"
             return {
-                "answer": (
-                    "נראה שהשאלה שלך אינה קשורה לעולם היהלומים 😊\n\n"
-                    "אני מתמחה בבחירת יהלומים, השוואת מחירים, הבנת מאפיינים כמו קראט, צבע, ניקיון וחיתוך, "
-                    "ואשמח לעזור בכל שאלה בתחום הזה."
-                ),
+                "answer": self._out_of_scope_message(language),
                 "intent": "out_of_scope"
             }
-
-        self._update_session_from_gemini(session, gemini_data)
 
         intent = gemini_data.get("intent")
 
         if intent == "explanation":
-            return self._handle_explanation(session)
+            return self._handle_explanation(message, session)
 
         if intent in ["similarity", "comparison"]:
             return {
                 "answer": (
-                    "אני יכולה לעזור בזה 💎\n\n"
-                    "בשלב הבא נוסיף מנגנון השוואה ודמיון בין יהלומים לפי מאפיינים כמו קראט, צבע, ניקיון, חיתוך וצורה."
+                    "אני יכולה לעזור להשוות או למצוא יהלומים דומים לפי הפרמטרים שתבחרי 💎\n\n"
+                    "כתבי לי את התקציב והמאפיינים החשובים לך, למשל צורה, קראט, צבע, ניקיון או חיתוך, "
+                    "ואחזיר לך יהלומים שמתאימים כמה שיותר לבקשה.\n\n"
+                    "איזה יהלום או אילו פרמטרים תרצי שאבדוק?"
                 ),
                 "intent": intent
             }
@@ -82,11 +80,7 @@ class AgentService:
         if not currency:
             session["last_question"] = "currency"
             return {
-                "answer": (
-                    "המחירים במאגר הם בדולרים 💎\n\n"
-                    "באיזה מטבע התקציב שכתבת?\n"
-                    "אפשר לכתוב: דולר, שקל, יורו או פאונד."
-                ),
+                "answer": self._missing_currency_message(language),
                 "intent": "missing_currency"
             }
 
@@ -95,14 +89,10 @@ class AgentService:
         if budget_usd is None:
             session["last_question"] = "currency"
             return {
-                "answer": (
-                    "לא הצלחתי לזהות את המטבע 😊\n\n"
-                    "אפשר לכתוב אחד מהבאים: דולר, שקל, יורו או פאונד."
-                ),
+                "answer": self._missing_currency_message(language),
                 "intent": "missing_currency"
             }
 
-        shape = session.get("shape")
         preference = session.get("preference") or "balanced"
 
         if self._requires_diamonds2(session):
@@ -113,6 +103,9 @@ class AgentService:
                 cut=session.get("cut"),
                 color=session.get("color"),
                 clarity=session.get("clarity"),
+                carat=session.get("carat"),
+                depth=session.get("depth"),
+                table=session.get("table"),
                 polish=session.get("polish"),
                 symmetry=session.get("symmetry"),
                 girdle=session.get("girdle"),
@@ -125,18 +118,16 @@ class AgentService:
                 preference=preference,
                 cut=session.get("cut"),
                 color=session.get("color"),
-                clarity=session.get("clarity")
+                clarity=session.get("clarity"),
+                carat=session.get("carat"),
+                depth=session.get("depth"),
+                table=session.get("table")
             )
 
         if not recommendations:
             session["last_intent"] = "no_results"
             return {
-                "answer": (
-                    "לא מצאתי יהלום שעומד בדיוק בכל הדרישות שבחרת 💎\n\n"
-                    "אפשר לנסות לשנות אחד מהפרמטרים, למשל להגדיל מעט את התקציב, לבחור צבע אחר, "
-                    "להתגמש ברמת הניקיון או לבחור צורה נוספת.\n\n"
-                    "רוצה שאנסה לחפש לפי פחות מגבלות?"
-                ),
+                "answer": self._no_results_message(session, budget, currency),
                 "intent": "no_results"
             }
 
@@ -158,10 +149,17 @@ class AgentService:
             "cut": None,
             "color": None,
             "clarity": None,
+            "carat": None,
+            "depth": None,
+            "table": None,
             "polish": None,
             "symmetry": None,
+            "girdle": None,
+            "diamond_type": None,
+            "length_width_ratio": None,
             "preference": None,
             "topic": None,
+            "language": "he",
             "last_question": None,
             "last_intent": None
         }
@@ -174,10 +172,17 @@ class AgentService:
             "cut",
             "color",
             "clarity",
+            "carat",
+            "depth",
+            "table",
             "polish",
             "symmetry",
+            "girdle",
+            "diamond_type",
+            "length_width_ratio",
             "preference",
-            "topic"
+            "topic",
+            "language"
         ]
 
         for field in fields:
@@ -201,7 +206,7 @@ class AgentService:
         diamonds2_only_fields = [
             "shape",
             "polish",
-            "symmetry"
+            "symmetry",
             "girdle",
             "diamond_type",
             "length_width_ratio"
@@ -212,7 +217,7 @@ class AgentService:
     def _format_recommendations(self, recommendations, original_budget, currency):
         answer = (
             f"מצאתי את היהלומים שמתאימים הכי קרוב לבקשה שלך, "
-            f"בהתאם לתקציב של {original_budget:,.0f} {currency} 💎\n\n"
+            f"בהתאם לתקציב של {float(original_budget):,.0f} {currency} 💎\n\n"
         )
 
         for i, diamond in enumerate(recommendations, start=1):
@@ -225,6 +230,8 @@ class AgentService:
                     f"   ניקיון: {diamond.get('Clarity')}\n"
                     f"   ליטוש: {diamond.get('Polish')}\n"
                     f"   סימטריה: {diamond.get('Symmetry')}\n"
+                    f"   Girdle: {diamond.get('Girdle')}\n"
+                    f"   סוג: {diamond.get('Type')}\n"
                     f"   מחיר: {diamond.get('Price')}$\n\n"
                 )
             else:
@@ -233,36 +240,105 @@ class AgentService:
                     f"   חיתוך: {diamond.get('cut')}\n"
                     f"   צבע: {diamond.get('color')}\n"
                     f"   ניקיון: {diamond.get('clarity')}\n"
+                    f"   עומק: {diamond.get('depth')}\n"
+                    f"   Table: {diamond.get('table')}\n"
                     f"   מחיר: {diamond.get('price')}$\n\n"
                 )
 
-        answer += (
-            "רוצה שאדייק את ההמלצה לפי פרמטר נוסף כמו צבע, ניקיון, חיתוך או צורה?"
-        )
+        answer += "רוצה שאדייק את ההמלצה לפי פרמטר נוסף כמו קראט, צבע, ניקיון, חיתוך או צורה?"
 
         return answer
 
-    def _handle_explanation(self, session):
+    def _handle_explanation(self, message, session):
+        language = session.get("language") or "he"
         topic = session.get("topic")
 
-        explanations = {
-            "carat": "קראט הוא מדד למשקל היהלום. בדרך כלל ככל שהקראט גבוה יותר, היהלום גדול ויקר יותר 💎",
-            "cut": "חיתוך מתאר את איכות החיתוך של היהלום, והוא משפיע מאוד על הברק והניצוץ שלו.",
-            "color": "צבע היהלום מתאר עד כמה היהלום חסר צבע. לרוב, ככל שהיהלום קרוב יותר לחסר צבע, הוא נחשב איכותי יותר.",
-            "clarity": "ניקיון מתאר את כמות הפגמים הפנימיים או החיצוניים ביהלום. ככל שיש פחות פגמים, רמת הניקיון גבוהה יותר.",
-            "shape": "צורה מתארת את המבנה החיצוני של היהלום, למשל Round, Oval, Cushion או Princess.",
-            "polish": "Polish מתאר את איכות הגימור והליטוש של פני היהלום.",
-            "symmetry": "Symmetry מתארת עד כמה חלקי היהלום סימטריים ומדויקים ביחס אחד לשני.",
-            "fluorescence": "Fluorescence מתארת תגובה של היהלום לאור אולטרה-סגול. בחלק מהמקרים זה יכול להשפיע על המראה והמחיר.",
-            "girdle": "Girdle הוא החלק ההיקפי שמפריד בין החלק העליון והתחתון של היהלום."
-        }
-
-        answer = explanations.get(
-            topic,
-            "אני יכולה להסביר על מאפיינים כמו קראט, צבע, ניקיון, חיתוך, צורה, ליטוש וסימטריה 💎\nעל איזה פרמטר תרצי הסבר?"
+        answer = self.gemini.generate_diamond_explanation(
+            user_message=message,
+            topic=topic,
+            language=language,
+            session_context=session
         )
 
+        if not answer:
+            answer = (
+                "אני יכולה להסביר על מאפיינים שונים של יהלומים כמו קראט, צבע, ניקיון, חיתוך, צורה, "
+                "ליטוש, סימטריה ויחס אורך-רוחב 💎\n\n"
+                "על איזה פרמטר תרצי שאסביר?"
+            )
+
+        session["last_intent"] = "explanation"
         return {
             "answer": answer,
             "intent": "explanation"
         }
+
+    def _missing_currency_message(self, language):
+        if language == "en":
+            return (
+                "The prices in the database are in USD 💎\n\n"
+                "Which currency did you mean: dollar, shekel, euro, or pound?"
+            )
+
+        return (
+            "המחירים במאגר הם בדולרים 💎\n\n"
+            "באיזה מטבע התקציב שכתבת?\n"
+            "אפשר לכתוב: דולר, שקל, יורו או פאונד."
+        )
+
+    def _default_clarification_question(self, language):
+        if language == "en":
+            return "I did not fully understand the request 😊 Could you rephrase it?"
+
+        return "לא הצלחתי להבין לגמרי את הבקשה 😊 תוכלי לנסח אותה שוב?"
+
+    def _out_of_scope_message(self, language):
+        if language == "en":
+            return (
+                "It looks like your question is not related to diamonds 😊\n\n"
+                "I specialize in choosing diamonds, comparing prices, and explaining parameters like carat, color, clarity, cut and shape.\n\n"
+                "Would you like help choosing or understanding a diamond?"
+            )
+
+        return (
+            "נראה שהשאלה שלך אינה קשורה לעולם היהלומים 😊\n\n"
+            "אני מתמחה בבחירת יהלומים, השוואת מחירים, והבנת מאפיינים כמו קראט, צבע, ניקיון, חיתוך וצורה.\n\n"
+            "תרצי שאעזור לך לבחור יהלום או להבין פרמטר מסוים?"
+        )
+
+    def _no_results_message(self, session, budget, currency):
+        requirements = self._describe_requirements(session)
+
+        return (
+            "לא מצאתי יהלום שעומד בכל הדרישות שבחרת 💎\n\n"
+            f"הדרישות שחיפשתי לפיהן הן: {requirements}, בתקציב של עד {budget:,.0f} {currency}.\n\n"
+            "רוצה שאנסה לחפש לפי פחות מגבלות, למשל להתגמש בקראט, בצבע, בניקיון או בתקציב?"
+        )
+
+    def _describe_requirements(self, session):
+        labels = {
+            "shape": "צורה",
+            "cut": "חיתוך",
+            "color": "צבע",
+            "clarity": "ניקיון",
+            "carat": "קראט",
+            "depth": "עומק",
+            "table": "Table",
+            "polish": "ליטוש",
+            "symmetry": "סימטריה",
+            "girdle": "Girdle",
+            "diamond_type": "סוג",
+            "length_width_ratio": "יחס אורך-רוחב"
+        }
+
+        parts = []
+
+        for field, label in labels.items():
+            value = session.get(field)
+            if value is not None:
+                parts.append(f"{label}: {value}")
+
+        if not parts:
+            return "תקציב בלבד"
+
+        return ", ".join(parts)
