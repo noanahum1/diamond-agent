@@ -132,6 +132,16 @@ class GeminiClient:
     - Color: D/E/F/G/H/I/J etc.
     - Clarity: IF, VVS1, VVS2, VS1, VS2, SI1, SI2 etc.
     - Carat examples: 4 קראט, 4ct, 4 carat -> 4.
+    - 2 קראט -> carat: 2, budget: null, currency: null
+    Important numeric extraction rules:
+    - Never assume that a standalone number is a budget.
+    - A number followed by carat, ct, קראט, קרט means diamond carat only.
+    - A number followed by $, dollar, usd, דולר means budget in USD.
+    - A number followed by שקל, שח, ש"ח, nis, ils means budget in ILS.
+    - A number followed by euro, eur, יורו means budget in EUR.
+    - A number followed by pound, gbp, פאונד means budget in GBP.
+    - If the user gives carat without price, fill carat and leave budget null.
+    - If the user gives price without currency, fill budget but currency must stay null.
     """
 
         raw_response = self.generate_text(prompt)
@@ -159,9 +169,39 @@ Rules:
 - Answer only about diamonds.
 - Do not use a fixed answer bank.
 - Do not invent diamond inventory or prices.
-- Keep the answer clear, helpful, and not too long.
+- Keep answers concise but include practical information that helps users choose diamonds.
 - If the user asks about shapes, explain actual diamond shapes such as Round, Cushion, Princess, Oval, Emerald, Pear, Radiant, Heart and others when relevant.
 - If the user asks about a specific parameter, explain that parameter.
+- When explaining diamond parameters, include common example values when useful.
+- Do not present the examples as the complete list unless the user asks for all options.
+
+Parameter examples:
+Shape:
+Round, Oval, Princess, Cushion, Emerald, Pear, Radiant, Heart.
+Cut:
+Ideal, Excellent, Very Good, Good, Fair.
+Color:
+D, E, F, G, H, I, J.
+Explain that D is the highest color grade and values progress toward more visible color.
+Clarity:
+FL, IF, VVS1, VVS2, VS1, VS2, SI1, SI2.
+Explain the difference is related to visibility and amount of inclusions.
+Polish:
+Excellent, Very Good, Good, Fair.
+Symmetry:
+Excellent, Very Good, Good, Fair.
+Girdle:
+Extremely Thin, Very Thin, Thin, Medium, Slightly Thick, Thick.
+Culet:
+None, Very Small, Small, Medium, Large.
+Diamond type:
+Natural, Lab Grown.
+Carat:
+Numeric weight measurement, for example 0.5, 1, 2 carat.
+Depth/Table:
+Percentage measurements that describe diamond proportions.
+Length width ratio:
+Numeric ratio describing the diamond outline, for example 1.0 for a round appearance or higher values for elongated shapes.
 - Respond in this language: {language}
 - Every response MUST end with one natural follow-up question that continues the conversation.
 - Do not expose internal JSON, field names, code, dataset names, or CSV names.
