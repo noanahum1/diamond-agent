@@ -66,7 +66,9 @@ class GeminiClient:
 
     Understand Hebrew, English, transliteration, spelling mistakes, and partial answers.
     Extract diamond intent and parameters.
-    Keep existing context unless the user clearly changes it-add the new parameter to the previous context.
+    Keep existing context unless the user explicitly provides a new value.
+    If the user provides a new value for an existing field, the new value must override the previous value.
+    Do not keep old values from explanation topics as recommendation filters unless the user clearly asks to use them.
     The conversation is continuous.
     If the user gives a short reply such as confirmation, rejection,
     agreement, or a partial answer, interpret it according to the previous
@@ -134,6 +136,13 @@ class GeminiClient:
     - 2 קראט -> carat: 2, budget: null, currency: null
     - If the agent previously asked whether the user needs anything else, and the user answers negatively such as "לא", "לא תודה", "no", "no thanks", understand that the conversation is ending.
     - In that case return intent: "conversation_end", is_diamond_related: true, needs_clarification: false.
+    - Explicit user values always override previous context values.
+    - If the previous topic was an explanation, do not use explained values as recommendation filters unless the user repeats them in the recommendation request.
+    - Example:
+    Context: topic = "Fair cut", last_intent = "explanation"
+    User: "אני מחפשת יהלום שהוא חיתוך ideal ועולה עד 3000 דולר"
+    => intent: "recommendation", cut: "Ideal", budget: 3000, currency: "USD"
+    - Never return cut: "Fair" in this case.
     Important numeric extraction rules:
     - Never assume that a standalone number is a budget.
     - A number followed by carat, ct, קראט, קרט means diamond carat only.
