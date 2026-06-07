@@ -70,6 +70,9 @@ class GeminiClient:
     If the user provides a new value for an existing field, the new value must override the previous value.
     Do not keep old values from explanation topics as recommendation filters unless the user clearly asks to use them.
     The conversation is continuous.
+    Decide whether the user is starting a new independent diamond request or continuing the current one.
+    If the user starts a separate search for another/different/new diamond, return "is_new_request": true.
+    If the user only adds, updates, or refines filters in the current search, return "is_new_request": false.
     If the user gives a short reply such as confirmation, rejection,
     agreement, or a partial answer, interpret it according to the previous
     agent message and session context.
@@ -113,6 +116,7 @@ class GeminiClient:
     "preference": null,
     "topic": null,
     "needs_clarification": false,
+    "is_new_request": false,
     "clarification_question": null
     }}
 
@@ -137,6 +141,8 @@ class GeminiClient:
     - If the agent previously asked whether the user needs anything else, and the user answers negatively such as "לא", "לא תודה", "no", "no thanks", understand that the conversation is ending.
     - In that case return intent: "conversation_end", is_diamond_related: true, needs_clarification: false.
     - Explicit user values always override previous context values.
+    - If is_new_request is true, return only the values from the new request and do not reuse old recommendation filters from context.
+    - If is_new_request is false, keep the previous context and update only explicitly provided values.
     - If the previous topic was an explanation, do not use explained values as recommendation filters unless the user repeats them in the recommendation request.
     - Example:
     Context: topic = "Fair cut", last_intent = "explanation"
@@ -271,6 +277,7 @@ User message:
             "preference": None,
             "topic": None,
             "needs_clarification": True,
+            "is_new_request": False,
             "clarification_question": (
                 "יש כרגע עומס זמני על מנגנון הבנת השפה שלי 😊\n"
                 "אפשר לכתוב לי שוב בצורה קצרה, למשל: יהלום עגול עד 1000 דולר?"

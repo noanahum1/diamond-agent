@@ -86,11 +86,6 @@ class AgentService:
     def _try_fast_message(self, message, session):
         normalized = message.lower().strip()
 
-        explicit_updates = self._extract_explicit_user_updates(message)
-
-        for field, value in explicit_updates.items():
-            session[field] = value
-
         end_messages = [
             "תודה", "תודה רבה", "תודה!", "תודה רבה!",
             "ביי", "בייי", "להתראות", "סיימתי",
@@ -127,11 +122,9 @@ class AgentService:
                 "intent": "start_recommendation"
             }
 
-        fast_data = self._extract_fast_budget_currency(message)
-        fast_shape = self._extract_fast_shape(message)
-
-        if fast_shape:
-            session["shape"] = fast_shape
+        fast_data = None
+        if session.get("last_question") == "currency":
+            fast_data = self._extract_fast_budget_currency(message)
 
         if fast_data:
             if fast_data.get("budget") is not None:
@@ -274,10 +267,39 @@ class AgentService:
             "language": "he",
             "last_question": None,
             "last_agent_message": None,
-            "last_intent": None
+            "last_intent": None,
+            "is_new_request": False
         }
 
+    def _clear_recommendation_filters(self, session):
+        fields_to_clear = [
+            "budget",
+            "currency",
+            "shape",
+            "cut",
+            "color",
+            "clarity",
+            "carat",
+            "depth",
+            "table",
+            "polish",
+            "symmetry",
+            "girdle",
+            "diamond_type",
+            "length_width_ratio",
+            "preference",
+        ]
+
+        for field in fields_to_clear:
+            session[field] = None
+
     def _update_session_from_gemini(self, session, gemini_data):
+        if gemini_data.get("intent") == "recommendation" and gemini_data.get("is_new_request"):
+            self._clear_recommendation_filters(session)
+            session["is_new_request"] = True
+        else:
+            session["is_new_request"] = False
+            
         fields = [
             "budget", "currency", "shape", "cut", "color", "clarity",
             "carat", "depth", "table", "polish", "symmetry", "girdle",
@@ -511,93 +533,73 @@ class AgentService:
 
         return ", ".join(parts)
 
-    def _extract_fast_shape(self, message):
-        normalized = message.lower().strip()
+    # def _extract_explicit_user_updates(self, message):
+    #     normalized = message.lower().replace(",", "").strip()
+    #     updates = {}
 
-        if any(word in normalized for word in ["עגול", "ראונד", "round"]):
-            return "Round"
+    #     numbers = re.findall(r"\d+(?:\.\d+)?", normalized)
 
-        if any(word in normalized for word in ["אובל", "oval"]):
-            return "Oval"
+    #     if any(word in normalized for word in ["דולר", "דולרים", "usd", "dollar", "dollars"]):
+    #         updates["currency"] = "USD"
+    #     elif any(word in normalized for word in ["שקל", "שקלים", "שח", 'ש"ח', "ils", "nis"]):
+    #         updates["currency"] = "ILS"
+    #     elif any(word in normalized for word in ["יורו", "euro", "eur"]):
+    #         updates["currency"] = "EUR"
+    #     elif any(word in normalized for word in ["פאונד", "pound", "gbp"]):
+    #         updates["currency"] = "GBP"
 
-        if any(word in normalized for word in ["פרינסס", "princess"]):
-            return "Princess"
+    #     if updates.get("currency") and numbers:
+    #         updates["budget"] = float(numbers[0])
 
-        if any(word in normalized for word in ["קושן", "קושיין", "cushion"]):
-            return "Cushion"
+    #     if any(word in normalized for word in ["עגול", "ראונד", "round"]):
+    #         updates["shape"] = "Round"
+    #     elif any(word in normalized for word in ["אובל", "oval"]):
+    #         updates["shape"] = "Oval"
+    #     elif any(word in normalized for word in ["פרינסס", "princess"]):
+    #         updates["shape"] = "Princess"
+    #     elif any(word in normalized for word in ["קושן", "קושיין", "cushion"]):
+    #         updates["shape"] = "Cushion"
+    #     elif any(word in normalized for word in ["אמרלד", "emerald"]):
+    #         updates["shape"] = "Emerald"
+    #     elif any(word in normalized for word in ["רדיאנט", "radiant"]):
+    #         updates["shape"] = "Radiant"
 
-        if any(word in normalized for word in ["אמרלד", "emerald"]):
-            return "Emerald"
+    #     if "very good" in normalized or "very-good" in normalized:
+    #         updates["cut"] = "Very Good"
+    #     elif "excellent" in normalized:
+    #         updates["cut"] = "Excellent"
+    #     elif "ideal" in normalized:
+    #         updates["cut"] = "Ideal"
+    #     elif "fair" in normalized:
+    #         updates["cut"] = "Fair"
+    #     elif "good" in normalized:
+    #         updates["cut"] = "Good"
 
-        return None
+    #     color_match = re.search(r"(?:צבע\s*)\b([d-jD-J])\b", message)
+    #     if color_match:
+    #         updates["color"] = color_match.group(1).upper()
 
-    def _extract_explicit_user_updates(self, message):
-        normalized = message.lower().replace(",", "").strip()
-        updates = {}
+    #     clarity_match = re.search(r"\b(FL|IF|VVS1|VVS2|VS1|VS2|SI1|SI2|I1|I2)\b", message, re.IGNORECASE)
+    #     if clarity_match:
+    #         updates["clarity"] = clarity_match.group(1).upper()
 
-        numbers = re.findall(r"\d+(?:\.\d+)?", normalized)
+    #     carat_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:קראט|קרט|ct|carat)", normalized)
+    #     if carat_match:
+    #         updates["carat"] = float(carat_match.group(1))
 
-        if any(word in normalized for word in ["דולר", "דולרים", "usd", "dollar", "dollars"]):
-            updates["currency"] = "USD"
-        elif any(word in normalized for word in ["שקל", "שקלים", "שח", 'ש"ח', "ils", "nis"]):
-            updates["currency"] = "ILS"
-        elif any(word in normalized for word in ["יורו", "euro", "eur"]):
-            updates["currency"] = "EUR"
-        elif any(word in normalized for word in ["פאונד", "pound", "gbp"]):
-            updates["currency"] = "GBP"
+    #     if "gia lab-grown" in normalized or "gia lab grown" in normalized:
+    #         updates["diamond_type"] = "GIA Lab-Grown"
+    #     elif "igi lab-grown" in normalized or "igi lab grown" in normalized:
+    #         updates["diamond_type"] = "IGI Lab-Grown"
+    #     elif "lab-grown" in normalized or "lab grown" in normalized or "מעבדה" in normalized:
+    #         updates["diamond_type"] = "GIA Lab-Grown"
+    #     elif "gia" in normalized or "טבעי" in normalized or "natural" in normalized:
+    #         updates["diamond_type"] = "GIA"
 
-        if updates.get("currency") and numbers:
-            updates["budget"] = float(numbers[0])
+    #     if "polish" in normalized or "ליטוש" in normalized:
+    #         updates["polish"] = None
 
-        if any(word in normalized for word in ["עגול", "ראונד", "round"]):
-            updates["shape"] = "Round"
-        elif any(word in normalized for word in ["אובל", "oval"]):
-            updates["shape"] = "Oval"
-        elif any(word in normalized for word in ["פרינסס", "princess"]):
-            updates["shape"] = "Princess"
-        elif any(word in normalized for word in ["קושן", "קושיין", "cushion"]):
-            updates["shape"] = "Cushion"
-        elif any(word in normalized for word in ["אמרלד", "emerald"]):
-            updates["shape"] = "Emerald"
-        elif any(word in normalized for word in ["רדיאנט", "radiant"]):
-            updates["shape"] = "Radiant"
+    #     if "symmetry" in normalized or "סימטריה" in normalized:
+    #         updates["symmetry"] = None
 
-        if "very good" in normalized or "very-good" in normalized:
-            updates["cut"] = "Very Good"
-        elif "excellent" in normalized:
-            updates["cut"] = "Excellent"
-        elif "ideal" in normalized:
-            updates["cut"] = "Ideal"
-        elif "fair" in normalized:
-            updates["cut"] = "Fair"
-        elif "good" in normalized:
-            updates["cut"] = "Good"
-
-        color_match = re.search(r"(?:צבע\s*)\b([d-jD-J])\b", message)
-        if color_match:
-            updates["color"] = color_match.group(1).upper()
-
-        clarity_match = re.search(r"\b(FL|IF|VVS1|VVS2|VS1|VS2|SI1|SI2|I1|I2)\b", message, re.IGNORECASE)
-        if clarity_match:
-            updates["clarity"] = clarity_match.group(1).upper()
-
-        carat_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:קראט|קרט|ct|carat)", normalized)
-        if carat_match:
-            updates["carat"] = float(carat_match.group(1))
-
-        if "gia lab-grown" in normalized or "gia lab grown" in normalized:
-            updates["diamond_type"] = "GIA Lab-Grown"
-        elif "igi lab-grown" in normalized or "igi lab grown" in normalized:
-            updates["diamond_type"] = "IGI Lab-Grown"
-        elif "lab-grown" in normalized or "lab grown" in normalized or "מעבדה" in normalized:
-            updates["diamond_type"] = "GIA Lab-Grown"
-        elif "gia" in normalized or "טבעי" in normalized or "natural" in normalized:
-            updates["diamond_type"] = "GIA"
-
-        if "polish" in normalized or "ליטוש" in normalized:
-            updates["polish"] = None
-
-        if "symmetry" in normalized or "סימטריה" in normalized:
-            updates["symmetry"] = None
-
-        return updates 
+    #     return updates 
