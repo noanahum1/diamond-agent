@@ -152,6 +152,12 @@ class GeminiClient:
     - A number followed by pound, gbp, פאונד means budget in GBP.
     - If the user gives carat without price, fill carat and leave budget null.
     - If the user gives price without currency, fill budget but currency must stay null.
+    Diamond type / certificate normalization:
+    GIA, GIA Lab-Grown, IGI Lab-Grown.
+    - If user says natural or טבעי -> GIA.
+    - If user says lab grown / מעבדה without a lab name -> GIA Lab-Grown.
+    - If user says IGI lab grown -> IGI Lab-Grown.
+    - If user says GIA lab grown -> GIA Lab-Grown.
     """
 
         raw_response = self.generate_text(prompt)
@@ -204,8 +210,9 @@ Girdle:
 Extremely Thin, Very Thin, Thin, Medium, Slightly Thick, Thick.
 Culet:
 None, Very Small, Small, Medium, Large.
-Diamond type:
-Natural, Lab Grown.
+Type / certificate examples:
+GIA, GIA Lab-Grown, IGI Lab-Grown.
+Explain that GIA usually represents a natural diamond certificate in this dataset, while GIA Lab-Grown and IGI Lab-Grown represent lab-grown diamond certificates.
 Carat:
 Numeric weight measurement, for example 0.5, 1, 2 carat.
 Depth/Table:
