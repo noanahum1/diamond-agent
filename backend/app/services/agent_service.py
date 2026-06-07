@@ -180,7 +180,11 @@ class AgentService:
         if not budget:
             session["last_question"] = "budget"
             return {
-                "answer": "אשמח לעזור לך לבחור יהלום 😊\n\nמה התקציב המשוער שלך?",
+                "answer": (
+                    "I’d be happy to help you choose a diamond 😊\n\nWhat is your approximate budget?"
+                    if language == "en"
+                    else "אשמח לעזור לך לבחור יהלום 😊\n\nמה התקציב המשוער שלך?"
+                ),
                 "intent": "missing_budget"
             }
 
@@ -242,7 +246,13 @@ class AgentService:
         session["last_question"] = "additional_filters"
 
         return {
-            "answer": self._format_recommendations(recommendations, budget, currency, session),
+            "answer": self._format_recommendations(
+                recommendations,
+                budget,
+                currency,
+                session,
+                language
+            ),
             "intent": "recommendation"
         }
 
@@ -363,7 +373,14 @@ class AgentService:
 
         return any(session.get(field) for field in diamonds2_only_fields)
 
-    def _format_recommendations(self, recommendations, original_budget, currency, session):
+    def _format_recommendations(self, recommendations, original_budget, currency, session, language):
+        if language == "en":
+            return self._format_recommendations_en(
+                recommendations,
+                original_budget,
+                currency,
+                session
+            )
         answer = (
             f"מצאתי את היהלומים שמתאימים הכי קרוב לבקשה שלך, "
             f"בהתאם לתקציב של {float(original_budget):,.0f} {currency} 💎\n\n"
@@ -435,6 +452,40 @@ class AgentService:
                 answer += f"   מחיר: {diamond.get('price')}$\n\n"
 
         answer += "\n\n💎 רוצה שאדייק את ההמלצה לפי פרמטר נוסף? ☺️✨"
+        return answer
+
+    def _format_recommendations_en(self, recommendations, original_budget, currency, session):
+        answer = (
+            f"I found the diamonds that best match your request "
+            f"within a budget of {float(original_budget):,.0f} {currency} 💎\n\n"
+        )
+
+        for i, diamond in enumerate(recommendations, start=1):
+            if "Shape" in diamond:
+                answer += (
+                    f"{i}.\n"
+                    f"   Shape: {diamond.get('Shape')}\n"
+                    f"   Carat: {diamond.get('Carat')}\n"
+                    f"   Cut: {diamond.get('Cut')}\n"
+                    f"   Color: {diamond.get('Color')}\n"
+                    f"   Clarity: {diamond.get('Clarity')}\n"
+                    f"   Polish: {diamond.get('Polish')}\n"
+                    f"   Symmetry: {diamond.get('Symmetry')}\n"
+                    f"   Girdle: {diamond.get('Girdle')}\n"
+                    f"   Type: {diamond.get('Type')}\n"
+                    f"   Price: {diamond.get('Price')}$\n\n"
+                )
+            else:
+                answer += (
+                    f"{i}.\n"
+                    f"   Carat: {diamond.get('carat')}\n"
+                    f"   Cut: {diamond.get('cut')}\n"
+                    f"   Color: {diamond.get('color')}\n"
+                    f"   Clarity: {diamond.get('clarity')}\n"
+                    f"   Price: {diamond.get('price')}$\n\n"
+                )
+
+        answer += "Would you like me to refine the recommendation by another parameter? 💎"
         return answer
 
     def _handle_explanation(self, message, session):

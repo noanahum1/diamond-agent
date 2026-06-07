@@ -70,6 +70,8 @@ class GeminiClient:
     If the user provides a new value for an existing field, the new value must override the previous value.
     Do not keep old values from explanation topics as recommendation filters unless the user clearly asks to use them.
     The conversation is continuous.
+    The user may switch between Hebrew and English during the same session.
+    Keep the context, filters and previous intent when relevant, but update the response language according to the current user message.
     Decide whether the user is starting a new independent diamond request or continuing the current one.
     If the user starts a separate search for another/different/new diamond, return "is_new_request": true.
     If the user only adds, updates, or refines filters in the current search, return "is_new_request": false.
@@ -124,6 +126,9 @@ class GeminiClient:
     recommendation, explanation, comparison, similarity, out_of_scope, clarification, conversation_end
     Rules:
     - Hebrew input -> language "he"; English input -> "en".
+    Always detect the language of the current user message.
+    The "language" field must reflect the language of the current message, not necessarily the previous session language.
+    If the user switches language during the conversation, keep the existing diamond context but answer in the new language.
     - Clarification questions must be in the same language as the user.
     - Non-diamond topic -> is_diamond_related false, intent out_of_scope.
     - Explanation question -> intent explanation and fill topic.
