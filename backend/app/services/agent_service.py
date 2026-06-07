@@ -30,6 +30,7 @@ class AgentService:
             self.sessions[session_id] = self._create_empty_session()
 
         session = self.sessions[session_id]
+        session["language"] = self._detect_message_language(message)
 
         fast_result = self._try_fast_message(message, session)
         if fast_result:
@@ -280,6 +281,23 @@ class AgentService:
             "last_intent": None,
             "is_new_request": False
         }
+
+    def _text(self, language, he, en):
+        return en if language == "en" else he
+
+    def _detect_message_language(self, message):
+        normalized = message.strip()
+
+        hebrew_chars = re.findall(r"[\u0590-\u05FF]", normalized)
+        english_chars = re.findall(r"[A-Za-z]", normalized)
+
+        if english_chars and not hebrew_chars:
+            return "en"
+
+        if hebrew_chars:
+            return "he"
+
+        return "he"
 
     def _clear_recommendation_filters(self, session):
         fields_to_clear = [
@@ -548,7 +566,16 @@ class AgentService:
         )
 
     def _no_results_message(self, session, budget, currency):
+        language = session.get("language") or "he"
         requirements = self._describe_requirements(session)
+
+        if language == "en":
+            requirements = self._describe_requirements(session)
+            return (
+                "I couldn't find a diamond that matches all the requirements you selected 💎\n\n"
+                f"The requirements I searched by are: {requirements}, with a budget of up to {budget:,.0f} {currency}.\n\n"
+                "Would you like me to search with fewer restrictions, for example by being more flexible with carat, color, clarity, or budget?"
+            )
 
         return (
             "לא מצאתי יהלום שעומד בכל הדרישות שבחרת 💎\n\n"
