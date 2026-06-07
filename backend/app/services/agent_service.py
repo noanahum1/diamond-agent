@@ -567,10 +567,9 @@ class AgentService:
 
     def _no_results_message(self, session, budget, currency):
         language = session.get("language") or "he"
-        requirements = self._describe_requirements(session)
+        requirements = self._describe_requirements(session, language)
 
         if language == "en":
-            requirements = self._describe_requirements(session)
             return (
                 "I couldn't find a diamond that matches all the requirements you selected 💎\n\n"
                 f"The requirements I searched by are: {requirements}, with a budget of up to {budget:,.0f} {currency}.\n\n"
@@ -583,21 +582,37 @@ class AgentService:
             "רוצה שאנסה לחפש לפי פחות מגבלות, למשל להתגמש בקראט, בצבע, בניקיון או בתקציב?"
         )
 
-    def _describe_requirements(self, session):
-        labels = {
-            "shape": "צורה",
-            "cut": "חיתוך",
-            "color": "צבע",
-            "clarity": "ניקיון",
-            "carat": "קראט",
-            "depth": "עומק",
-            "table": "Table",
-            "polish": "ליטוש",
-            "symmetry": "סימטריה",
-            "girdle": "Girdle",
-            "diamond_type": "סוג",
-            "length_width_ratio": "יחס אורך-רוחב"
-        }
+    def _describe_requirements(self, session, language="he"):
+        if language == "en":
+            labels = {
+                "shape": "Shape",
+                "cut": "Cut",
+                "color": "Color",
+                "clarity": "Clarity",
+                "carat": "Carat",
+                "depth": "Depth",
+                "table": "Table",
+                "polish": "Polish",
+                "symmetry": "Symmetry",
+                "girdle": "Girdle",
+                "diamond_type": "Type",
+                "length_width_ratio": "Length/Width ratio"
+            }
+        else:
+            labels = {
+                "shape": "צורה",
+                "cut": "חיתוך",
+                "color": "צבע",
+                "clarity": "ניקיון",
+                "carat": "קראט",
+                "depth": "עומק",
+                "table": "Table",
+                "polish": "ליטוש",
+                "symmetry": "סימטריה",
+                "girdle": "Girdle",
+                "diamond_type": "סוג",
+                "length_width_ratio": "יחס אורך-רוחב"
+            }
 
         parts = []
 
@@ -607,6 +622,6 @@ class AgentService:
                 parts.append(f"{label}: {value}")
 
         if not parts:
-            return "תקציב בלבד"
+            return "budget only" if language == "en" else "תקציב בלבד"
 
         return ", ".join(parts)
