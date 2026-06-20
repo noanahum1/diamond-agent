@@ -87,7 +87,7 @@ class GeminiClient:
     Agent: Which currency?
     User: Euro
     => update currency only.
-    Normalize extracted values to dataset-style English values.
+    Translate known values to English, but do not change unsupported values into similar supported values.
     Do not expose internal field names to the user.
 
     Context:
@@ -125,6 +125,11 @@ class GeminiClient:
     Allowed intents:
     recommendation, explanation, comparison, similarity, out_of_scope, clarification, conversation_end
     Rules:
+    Do not replace unsupported user values with similar supported values.
+    If the user asks for a value that is not listed in the dataset, return the exact normalized user value as extracted.
+    Validation will be handled later by the backend.
+    Example: oval -> Oval, do NOT convert to Round.
+    Example: perfect cut -> Perfect, do NOT convert to Ideal or Excellent.
     - Hebrew input -> language "he"; English input -> "en".
     Always detect the language of the current user message.
     The "language" field must reflect the language of the current message, not necessarily the previous session language.

@@ -40,6 +40,17 @@ class AgentService:
         self._update_session_from_gemini(session, gemini_data)
         self._normalize_session_values(session)
 
+        validation_error = self._validate_session_against_dataset(session)
+
+        if validation_error:
+            return {
+                "answer": self._build_validation_error_response(
+                    validation_error,
+                    session.get("language") or "he"
+                ),
+                "intent": "invalid_filter_value"
+            }
+
         language = session.get("language") or "he"
 
         if gemini_data.get("needs_clarification"):
@@ -625,3 +636,111 @@ class AgentService:
             return "budget only" if language == "en" else "תקציב בלבד"
 
         return ", ".join(parts)
+
+    def _get_dataset_rules(self, session):
+        if self._requires_diamonds2(session):
+            return {
+                "categorical": {
+                    "shape": ["Cushion", "Cushion Modified", "Heart", "Princess", "Radiant", "Round"],
+                    "cut": ["Astor", "Excellent", "Ideal", "Very Good"],
+                    "color": ["D", "E", "F", "G", "H"],
+                    "clarity": ["FL", "IF", "VS1", "VS2", "VVS1", "VVS2"],
+                    "diamond_type": ["GIA", "GIA Lab-Grown", "IGI Lab-Grown"],
+                    "polish": ["Excellent", "Good", "Very Good"],
+                    "symmetry": ["Excellent", "Good", "Very Good"],
+                    "girdle": [
+                        "Medium", "Medium to Slightly Thick", "Medium to Thick", "Medium to Very Thick",
+                        "Slightly Thick", "Slightly Thick to Thick", "Slightly Thick to Very Thick",
+                        "Thick", "Thick to Very Thick", "Thin", "Thin to Medium",
+                        "Thin to Slightly Thick", "Thin to Thick", "Thin to Very Thick",
+                        "Very Thick", "Very Thin to Slightly Thick", "Very Thin to Thick",
+                        "Very Thin to Very Thick"
+                    ],
+                },
+                "ranges": {
+                    "carat": {"min": 1.0, "max": 4.03}
+                }
+            }
+
+        return {
+            "categorical": {
+                "cut": ["Fair", "Good", "Ideal", "Premium", "Very Good"],
+                "color": ["D", "E", "F", "G", "H", "I", "J"],
+                "clarity": ["I1", "IF", "SI1", "SI2", "VS1", "VS2", "VVS1", "VVS2"],
+            },
+            "ranges": {
+                "carat": {"min": 0.2, "max": 5.01}
+            }
+        }
+
+    def _validate_session_against_dataset(self, session):
+        rules = self._get_dataset_rules(session)
+
+        for field, allowed_values in rules["categorical"].items():
+            value = session.get(field)
+
+            if value is None:
+                continue
+
+            allowed_lower = [str(v).lower().strip() for v in allowed_values]
+
+            if str(value).lower().strip() not in allowed_lower:
+                return {
+                    "type": "categorical",
+                    "parameter": field,
+                    "value": value
+                }
+
+        for field, range_rule in rules["ranges"].items():
+            value = session.get(field)
+
+            if value is None:
+                continue
+
+            try:
+                numeric_value = float(value)
+            except (TypeError, ValueError):
+                return {
+                    "type": "range",
+                    "parameter": field,
+                    "value": value,
+                    "min": range_rule["min"],
+                    "max": range_rule["max"]
+                }
+
+            if numeric_value < range_rule["min"] or numeric_value > range_rule["max"]:
+                return {
+                    "type": "range",
+                    "parameter": field,
+                    "value": value,
+                    "min": range_rule["min"],
+                    "max": range_rule["max"]
+                }
+
+        return None
+
+    def _build_validation_error_response(self, error, language):
+        if error["type"] == "range":
+            if language == "en":
+                return (
+                    f'The value "{error["value"]}" for "{error["parameter"]}" is not available in our current database.\n'
+                    f'The available range is between {error["min"]} and {error["max"]}.\n'
+                    f"Please choose a value within this range."
+                )
+
+            return (
+                f'הערך "{error["value"]}" עבור הפרמטר "{error["parameter"]}" לא קיים במאגר המידע הנוכחי שלנו.\n'
+                f'הטווח הקיים הוא בין {error["min"]} ל־{error["max"]}.\n'
+                f"אנא בחר ערך בטווח הזה."
+            )
+
+        if language == "en":
+            return (
+                f'The value "{error["value"]}" for "{error["parameter"]}" does not exist in our current database.\n'
+                f"Please choose another value."
+            )
+
+        return (
+            f'הערך "{error["value"]}" עבור הפרמטר "{error["parameter"]}" לא קיים במאגר המידע הנוכחי שלנו.\n'
+            f"אנא בחר ערך אחר."
+        )
