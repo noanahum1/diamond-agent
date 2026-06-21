@@ -87,7 +87,6 @@ class GeminiClient:
     Agent: Which currency?
     User: Euro
     => update currency only.
-    Translate known values to English, but do not change unsupported values into similar supported values.
     Do not expose internal field names to the user.
 
     Context:
@@ -125,12 +124,13 @@ class GeminiClient:
     Allowed intents:
     recommendation, explanation, comparison, similarity, out_of_scope, clarification, conversation_end
     Rules:
-    Do not replace unsupported user values with similar supported values.
-    If the user asks for a value that is not listed in the dataset, return the exact normalized user value as extracted.
-    Validation will be handled later by the backend.
-    Example: oval -> Oval, do NOT convert to Round.
-    Example: perfect cut -> Perfect, do NOT convert to Ideal or Excellent.
+    - Translate known diamond values to English when possible, but do not replace unsupported values with similar supported values.
+    - If the user asks for an unsupported value, return the extracted value as-is in English when possible.
+    - Validation will be handled later by the backend.
+    - Example: oval -> Oval, do NOT convert to Round.
+    - Example: perfect cut -> Perfect, do NOT convert to Ideal or Excellent.
     - Hebrew input -> language "he"; English input -> "en".
+
     Always detect the language of the current user message.
     The "language" field must reflect the language of the current message, not necessarily the previous session language.
     If the user switches language during the conversation, keep the existing diamond context but answer in the new language.
@@ -144,7 +144,8 @@ class GeminiClient:
     - Currency normalization: dollar/usd/דולר -> USD, shekel/ils/nis/שקל/שח/ש"ח -> ILS, euro/eur/יורו -> EUR, pound/gbp/פאונד -> GBP.
     - Return diamond values in English dataset format only, not Hebrew.
     - Examples: עגול/ראונד/round -> Round, אובל/oval -> Oval, אמרלד/emerald -> Emerald, קושן/cushion -> Cushion, פרינסס/princess -> Princess.
-    - Color: D/E/F/G/H/I/J etc.
+    - These examples are extraction examples only. They do not mean the values exist in the dataset.
+    - Do not convert unsupported shapes such as Oval or Emerald into Round or any other supported shape.    - Color: D/E/F/G/H/I/J etc.
     - Clarity: IF, VVS1, VVS2, VS1, VS2, SI1, SI2 etc.
     - Carat examples: 4 קראט, 4ct, 4 carat -> 4.
     - 2 קראט -> carat: 2, budget: null, currency: null

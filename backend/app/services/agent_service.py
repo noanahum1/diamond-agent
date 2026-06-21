@@ -51,6 +51,17 @@ class AgentService:
                 "intent": "invalid_filter_value"
             }
 
+        validation_error = self._validate_session_against_dataset(session)
+
+        if validation_error:
+            return {
+                "answer": self._build_validation_error_response(
+                    validation_error,
+                    session.get("language") or "he"
+                ),
+                "intent": "invalid_filter_value"
+            }
+
         language = session.get("language") or "he"
 
         if gemini_data.get("needs_clarification"):
@@ -272,6 +283,7 @@ class AgentService:
         return {
             "budget": None,
             "currency": None,
+            # shared / recommendation filters
             "shape": None,
             "cut": None,
             "color": None,
@@ -279,11 +291,33 @@ class AgentService:
             "carat": None,
             "depth": None,
             "table": None,
+            "price": None,
+            # diamonds2 specific
             "polish": None,
             "symmetry": None,
             "girdle": None,
             "diamond_type": None,
             "length_width_ratio": None,
+            "length": None,
+            "width": None,
+            "height": None,
+            # diamonds1 specific dimensions
+            "x": None,
+            "y": None,
+            "z": None,
+            # categories
+            "carat_category": None,
+            "price_category": None,
+            # encoded columns - only for validation if Gemini extracts them
+            "cut_encoded": None,
+            "color_encoded": None,
+            "clarity_encoded": None,
+            "carat_category_encoded": None,
+            "price_category_encoded": None,
+            "polish_encoded": None,
+            "symmetry_encoded": None,
+            "girdle_encoded": None,
+            # conversation state
             "preference": None,
             "topic": None,
             "language": "he",
@@ -312,21 +346,13 @@ class AgentService:
 
     def _clear_recommendation_filters(self, session):
         fields_to_clear = [
-            "budget",
-            "currency",
-            "shape",
-            "cut",
-            "color",
-            "clarity",
-            "carat",
-            "depth",
-            "table",
-            "polish",
-            "symmetry",
-            "girdle",
-            "diamond_type",
-            "length_width_ratio",
-            "preference",
+            "budget", "currency", "shape", "cut", "color", "clarity",
+            "carat", "depth", "table", "price", "polish", "symmetry", "girdle",
+            "diamond_type", "length_width_ratio", "length", "width", "height",
+            "x", "y", "z", "carat_category", "price_category",
+            "cut_encoded", "color_encoded", "clarity_encoded",
+            "carat_category_encoded", "price_category_encoded",
+            "polish_encoded", "symmetry_encoded", "girdle_encoded", "preference", "topic", "language"
         ]
 
         for field in fields_to_clear:
@@ -341,8 +367,12 @@ class AgentService:
             
         fields = [
             "budget", "currency", "shape", "cut", "color", "clarity",
-            "carat", "depth", "table", "polish", "symmetry", "girdle",
-            "diamond_type", "length_width_ratio", "preference", "topic", "language"
+            "carat", "depth", "table", "price", "polish", "symmetry", "girdle",
+            "diamond_type", "length_width_ratio", "length", "width", "height",
+            "x", "y", "z", "carat_category", "price_category",
+            "cut_encoded", "color_encoded", "clarity_encoded",
+            "carat_category_encoded", "price_category_encoded",
+            "polish_encoded", "symmetry_encoded", "girdle_encoded", "preference", "topic", "language"
         ]
 
         for field in fields:
@@ -401,6 +431,120 @@ class AgentService:
         ]
 
         return any(session.get(field) for field in diamonds2_only_fields)
+
+    def _get_dataset_validation_rules(self, session):
+        return {
+            "categorical": {
+                "shape": ["Cushion", "Cushion Modified", "Heart", "Princess", "Radiant", "Round"],
+                "cut": ["Fair", "Good", "Ideal", "Premium", "Very Good", "Astor", "Excellent"],
+                "color": ["D", "E", "F", "G", "H", "I", "J"],
+                "clarity": ["I1", "IF", "SI1", "SI2", "VS1", "VS2", "VVS1", "VVS2", "FL"],
+                "polish": ["Excellent", "Good", "Very Good"],
+                "symmetry": ["Excellent", "Good", "Very Good"],
+                "girdle": [
+                    "Medium", "Medium to Slightly Thick", "Medium to Thick", "Medium to Very Thick",
+                    "Slightly Thick", "Slightly Thick to Thick", "Slightly Thick to Very Thick",
+                    "Thick", "Thick to Very Thick", "Thin", "Thin to Medium",
+                    "Thin to Slightly Thick", "Thin to Thick", "Thin to Very Thick",
+                    "Very Thick", "Very Thin to Slightly Thick", "Very Thin to Thick",
+                    "Very Thin to Very Thick"
+                ],
+                "diamond_type": ["GIA", "GIA Lab-Grown", "IGI Lab-Grown"],
+                "carat_category": [
+                    "extra extra small", "extra large", "extra small", "large",
+                    "medium", "small", "ultra large (3+)"
+                ],
+                "price_category": ["high", "low", "medium", "very high", "very low"],
+            },
+            "ranges": {
+                "carat": {"min": 0.2, "max": 5.01},
+                "depth": {"min": 43.0, "max": 79.0},
+                "table": {"min": 43.0, "max": 95.0},
+                "price": {"min": 326, "max": 18823},
+                "length_width_ratio": {"min": 1.0, "max": 1.38},
+                "length": {"min": 5.18, "max": 9.63},
+                "width": {"min": 3.68, "max": 58.9},
+                "height": {"min": 1.07, "max": 31.8},
+                "x": {"min": 3.73, "max": 10.74},
+                "y": {"min": 3.68, "max": 58.9},
+                "z": {"min": 1.07, "max": 31.8},
+            }
+        }
+
+    def _validate_session_against_dataset(self, session):
+        rules = self._get_dataset_validation_rules(session)
+
+        for field, allowed_values in rules["categorical"].items():
+            value = session.get(field)
+
+            if value is None:
+                continue
+
+            allowed_lower = [str(v).lower().strip() for v in allowed_values]
+
+            if str(value).lower().strip() not in allowed_lower:
+                return {
+                    "type": "categorical",
+                    "parameter": field,
+                    "value": value
+                }
+
+        for field, range_rule in rules["ranges"].items():
+            value = session.get(field)
+
+            if value is None:
+                continue
+
+            try:
+                numeric_value = float(value)
+            except (TypeError, ValueError):
+                return {
+                    "type": "range",
+                    "parameter": field,
+                    "value": value,
+                    "min": range_rule["min"],
+                    "max": range_rule["max"]
+                }
+
+            if numeric_value < range_rule["min"] or numeric_value > range_rule["max"]:
+                return {
+                    "type": "range",
+                    "parameter": field,
+                    "value": value,
+                    "min": range_rule["min"],
+                    "max": range_rule["max"]
+                }
+
+        return None
+
+    def _build_validation_error_response(self, error, language):
+        parameter = error["parameter"]
+        value = error["value"]
+
+        if error["type"] == "range":
+            if language == "en":
+                return (
+                    f'The value "{value}" for "{parameter}" is not available in our current database.\n'
+                    f'The available range is between {error["min"]} and {error["max"]}.\n'
+                    f"Please choose a value within this range."
+                )
+
+            return (
+                f'הערך "{value}" עבור הפרמטר "{parameter}" לא קיים במאגר המידע הנוכחי שלנו.\n'
+                f'הטווח הקיים הוא בין {error["min"]} ל־{error["max"]}.\n'
+                f"אנא בחר ערך בטווח הזה."
+            )
+
+        if language == "en":
+            return (
+                f'The value "{value}" for "{parameter}" does not exist in our current database.\n'
+                f"Please choose another value."
+            )
+
+        return (
+            f'הערך "{value}" עבור הפרמטר "{parameter}" לא קיים במאגר המידע הנוכחי שלנו.\n'
+            f"אנא בחר ערך אחר."
+        )
 
     def _format_recommendations(self, recommendations, original_budget, currency, session, language):
         if language == "en":
