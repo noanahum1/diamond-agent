@@ -655,6 +655,12 @@ class AgentService:
             "girdle": session.get("girdle"),
             "diamond_type": session.get("diamond_type"),
             "length_width_ratio": session.get("length_width_ratio"),
+            "length": session.get("length"),
+            "width": session.get("width"),
+            "height": session.get("height"),
+            "x": session.get("x"),
+            "y": session.get("y"),
+            "z": session.get("z"),
         }
 
         for i, diamond in enumerate(recommendations, start=1):
@@ -692,6 +698,15 @@ class AgentService:
                 if requested_extra_fields["length_width_ratio"]:
                     answer += f"   יחס אורך-רוחב: {diamond.get('Length/Width Ratio')}\n"
 
+                if requested_extra_fields["length"]:
+                    answer += f"   אורך: {diamond.get('Length')}\n"
+
+                if requested_extra_fields["width"]:
+                    answer += f"   רוחב: {diamond.get('Width')}\n"
+
+                if requested_extra_fields["height"]:
+                    answer += f"   גובה: {diamond.get('Height')}\n"
+
                 answer += f"   מחיר: {diamond.get('Price')}$\n\n"
 
             else:
@@ -708,6 +723,15 @@ class AgentService:
 
                 if requested_extra_fields["table"]:
                     answer += f"   Table: {diamond.get('table')}\n"
+
+                if requested_extra_fields["x"]:
+                    answer += f"   X: {diamond.get('x')}\n"
+
+                if requested_extra_fields["y"]:
+                    answer += f"   Y: {diamond.get('y')}\n"
+
+                if requested_extra_fields["z"]:
+                    answer += f"   Z: {diamond.get('z')}\n"
 
                 answer += f"   מחיר: {diamond.get('price')}$\n\n"
 

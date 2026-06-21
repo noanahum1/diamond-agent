@@ -60,7 +60,7 @@ class RecommendationService:
         )
 
         return diamonds.head(3)[
-            ["carat", "cut", "color", "clarity", "depth", "table", "price"]
+            ["carat", "cut", "color", "clarity", "depth", "table", "price", "x", "y", "z"]
         ].to_dict(orient="records")
 
     def recommend_from_diamonds2(
@@ -147,16 +147,11 @@ class RecommendationService:
 
         return diamonds.head(3)[
             [
-                "Shape",
-                "Carat",
-                "Cut",
-                "Color",
-                "Clarity",
-                "Polish",
-                "Symmetry",
-                "Girdle",
-                "Price",
-                "Type"
+                "Shape", "Carat", "Cut", "Color",
+                "Clarity", "Polish", "Symmetry",
+                "Girdle", "Price", "Type",
+                "Depth %", "Table %", "Length/Width Ratio",
+                "Length", "Width", "Height"
             ]
         ].to_dict(orient="records")
 
