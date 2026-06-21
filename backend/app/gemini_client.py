@@ -161,7 +161,8 @@ class GeminiClient:
     - Return diamond values in English dataset format only, not Hebrew.
     - Examples: עגול/ראונד/round -> Round, אובל/oval -> Oval, אמרלד/emerald -> Emerald, קושן/cushion -> Cushion, פרינסס/princess -> Princess.
     - These examples are extraction examples only. They do not mean the values exist in the dataset.
-    - Do not convert unsupported shapes such as Oval or Emerald into Round or any other supported shape.    - Color: D/E/F/G/H/I/J etc.
+    - Do not convert unsupported shapes such as Oval or Emerald into Round or any other supported shape.
+    - Color: D/E/F/G/H/I/J etc.   
     - Clarity: IF, VVS1, VVS2, VS1, VS2, SI1, SI2 etc.
     - Carat examples: 4 קראט, 4ct, 4 carat -> 4.
     - 2 קראט -> carat: 2, budget: null, currency: null
