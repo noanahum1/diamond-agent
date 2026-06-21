@@ -109,11 +109,21 @@ class GeminiClient:
     "carat": null,
     "depth": null,
     "table": null,
+    "price": null,
+    "x": null,
+    "y": null,
+    "z": null,
+    "length": null,
+    "width": null,
+    "height": null,
     "polish": null,
     "symmetry": null,
     "girdle": null,
     "diamond_type": null,
     "length_width_ratio": null,
+    "carat_category": null,
+    "price_category": null,
+    "requested_options_for": null,
     "preference": null,
     "topic": null,
     "needs_clarification": false,
@@ -139,6 +149,12 @@ class GeminiClient:
     - Explanation question -> intent explanation and fill topic.
     - Recommendation/search/choose/find diamond -> intent recommendation.
     - If the user asks about shapes, cuts, clarity, color, carat, polish, symmetry, girdle, fluorescence, depth, table or any other diamond parameter, it is diamond-related.
+    - If the user asks what values/options exist for a parameter, set requested_options_for to that parameter name.
+    - Examples:
+    מה קיימות הצורות? -> requested_options_for: "shape"
+    what cut options exist? -> requested_options_for: "cut"
+    איזה ערכים קיימים עבור clarity? -> requested_options_for: "clarity"
+    - Do not answer the options yourself. Only extract requested_options_for.
     - If user writes only a number and context last_question is budget -> budget.
     - If user writes only currency and budget exists -> currency.
     - Currency normalization: dollar/usd/דולר -> USD, shekel/ils/nis/שקל/שח/ש"ח -> ILS, euro/eur/יורו -> EUR, pound/gbp/פאונד -> GBP.
@@ -161,6 +177,17 @@ class GeminiClient:
     => intent: "recommendation", cut: "Ideal", budget: 3000, currency: "USD"
     - Never return cut: "Fair" in this case.
     Important numeric extraction rules:
+    - Extract numeric diamond parameters when explicitly mentioned by name.
+    - depth 100 / depth=100 / עומק 100 -> depth: 100
+    - table 80 / table=80 -> table: 80
+    - x 50 / ערך x הוא 50 -> x: 50
+    - y 50 / ערך y הוא 50 -> y: 50
+    - z 50 / ערך z הוא 50 -> z: 50
+    - length 20 -> length: 20
+    - width 20 -> width: 20
+    - height 20 -> height: 20
+    - price 20000 -> price: 20000
+    - length width ratio 2 -> length_width_ratio: 2
     - Never assume that a standalone number is a budget.
     - A number followed by carat, ct, קראט, קרט means diamond carat only.
     - A number followed by $, dollar, usd, דולר means budget in USD.

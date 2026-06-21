@@ -40,15 +40,13 @@ class AgentService:
         self._update_session_from_gemini(session, gemini_data)
         self._normalize_session_values(session)
 
-        validation_error = self._validate_session_against_dataset(session)
-
-        if validation_error:
+        if session.get("requested_options_for"):
             return {
-                "answer": self._build_validation_error_response(
-                    validation_error,
+                "answer": self._build_available_options_response(
+                    session["requested_options_for"],
                     session.get("language") or "he"
                 ),
-                "intent": "invalid_filter_value"
+                "intent": "available_options"
             }
 
         validation_error = self._validate_session_against_dataset(session)
@@ -318,6 +316,7 @@ class AgentService:
             "symmetry_encoded": None,
             "girdle_encoded": None,
             # conversation state
+            "requested_options_for": None,
             "preference": None,
             "topic": None,
             "language": "he",
@@ -350,7 +349,7 @@ class AgentService:
             "carat", "depth", "table", "price", "polish", "symmetry", "girdle",
             "diamond_type", "length_width_ratio", "length", "width", "height",
             "x", "y", "z", "carat_category", "price_category",
-            "cut_encoded", "color_encoded", "clarity_encoded",
+            "cut_encoded", "color_encoded", "clarity_encoded", "requested_options_for",
             "carat_category_encoded", "price_category_encoded",
             "polish_encoded", "symmetry_encoded", "girdle_encoded", "preference", "topic", "language"
         ]
@@ -370,7 +369,7 @@ class AgentService:
             "carat", "depth", "table", "price", "polish", "symmetry", "girdle",
             "diamond_type", "length_width_ratio", "length", "width", "height",
             "x", "y", "z", "carat_category", "price_category",
-            "cut_encoded", "color_encoded", "clarity_encoded",
+            "cut_encoded", "color_encoded", "clarity_encoded", "requested_options_for",
             "carat_category_encoded", "price_category_encoded",
             "polish_encoded", "symmetry_encoded", "girdle_encoded", "preference", "topic", "language"
         ]
@@ -545,6 +544,67 @@ class AgentService:
             f'הערך "{value}" עבור הפרמטר "{parameter}" לא קיים במאגר המידע הנוכחי שלנו.\n'
             f"אנא בחר ערך אחר."
         )
+
+    def _build_available_options_response(self, parameter, language):
+        rules = self._get_dataset_validation_rules({})
+        parameter_key = str(parameter).lower().strip()
+
+        aliases = {
+            "shape": "shape",
+            "צורה": "shape",
+            "cut": "cut",
+            "חיתוך": "cut",
+            "color": "color",
+            "צבע": "color",
+            "clarity": "clarity",
+            "ניקיון": "clarity",
+            "polish": "polish",
+            "symmetry": "symmetry",
+            "girdle": "girdle",
+            "type": "diamond_type",
+            "diamond_type": "diamond_type",
+            "carat": "carat",
+            "קראט": "carat",
+            "depth": "depth",
+            "עומק": "depth",
+            "table": "table",
+            "x": "x",
+            "y": "y",
+            "z": "z",
+            "length": "length",
+            "width": "width",
+            "height": "height",
+            "price": "price",
+        }
+
+        field = aliases.get(parameter_key, parameter_key)
+
+        if field in rules["categorical"]:
+            values = ", ".join(rules["categorical"][field])
+
+            if language == "en":
+                return f'The available values for "{field}" are:\n{values}'
+
+            return f'הערכים הקיימים עבור "{field}" הם:\n{values}'
+
+        if field in rules["ranges"]:
+            range_rule = rules["ranges"][field]
+
+            if language == "en":
+                return (
+                    f'The available range for "{field}" is '
+                    f'between {range_rule["min"]} and {range_rule["max"]}.'
+                )
+
+            return (
+                f'הטווח הקיים עבור "{field}" הוא '
+                f'בין {range_rule["min"]} ל־{range_rule["max"]}.'
+            )
+
+        if language == "en":
+            return f'I could not find available values for "{parameter}".'
+
+        return f'לא מצאתי ערכים זמינים עבור "{parameter}".'
 
     def _format_recommendations(self, recommendations, original_budget, currency, session, language):
         if language == "en":
