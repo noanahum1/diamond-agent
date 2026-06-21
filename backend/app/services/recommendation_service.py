@@ -16,7 +16,10 @@ class RecommendationService:
         clarity: str = None,
         carat: float = None,
         depth: float = None,
-        table: float = None
+        table: float = None,
+        x: float = None,
+        y: float = None,
+        z: float = None
     ):
         diamonds = self.diamond_service.get_diamonds_by_budget(budget)
 
@@ -29,6 +32,9 @@ class RecommendationService:
         diamonds = self._filter_numeric_range(diamonds, "carat", carat, tolerance=0.05)
         diamonds = self._filter_numeric_range(diamonds, "depth", depth, tolerance=1.0)
         diamonds = self._filter_numeric_range(diamonds, "table", table, tolerance=1.0)
+        diamonds = self._filter_numeric_range(diamonds, "x", x, tolerance=0.05)
+        diamonds = self._filter_numeric_range(diamonds, "y", y, tolerance=0.05)
+        diamonds = self._filter_numeric_range(diamonds, "z", z, tolerance=0.05)
 
         if diamonds.empty:
             return []
@@ -78,7 +84,10 @@ class RecommendationService:
         symmetry: str = None,
         girdle: str = None,
         diamond_type: str = None,
-        length_width_ratio: float = None
+        length_width_ratio: float = None,
+        length: float = None,
+        width: float = None,
+        height: float = None
     ):
         diamonds = self.diamond_service.get_diamonds2_by_budget(budget)
 
@@ -97,12 +106,10 @@ class RecommendationService:
         diamonds = self._filter_numeric_range(diamonds, "Carat", carat, tolerance=0.05)
         diamonds = self._filter_numeric_range(diamonds, "Depth %", depth, tolerance=1.0)
         diamonds = self._filter_numeric_range(diamonds, "Table %", table, tolerance=1.0)
-        diamonds = self._filter_numeric_range(
-            diamonds,
-            "Length/Width Ratio",
-            length_width_ratio,
-            tolerance=0.05
-        )
+        diamonds = self._filter_numeric_range(diamonds, "Length/Width Ratio", length_width_ratio, tolerance=0.05)
+        diamonds = self._filter_numeric_range(diamonds, "Length", length, tolerance=0.05)
+        diamonds = self._filter_numeric_range(diamonds, "Width", width, tolerance=0.05)
+        diamonds = self._filter_numeric_range(diamonds, "Height", height, tolerance=0.05)
 
         if diamonds.empty:
             return []

@@ -243,7 +243,10 @@ class AgentService:
                 symmetry=session.get("symmetry"),
                 girdle=session.get("girdle"),
                 diamond_type=session.get("diamond_type"),
-                length_width_ratio=session.get("length_width_ratio")
+                length_width_ratio=session.get("length_width_ratio"),
+                length=session.get("length"),
+                width=session.get("width"),
+                height=session.get("height")
             )
         else:
             recommendations = self.recommendation_service.recommend_by_budget(
@@ -254,7 +257,10 @@ class AgentService:
                 clarity=session.get("clarity"),
                 carat=session.get("carat"),
                 depth=session.get("depth"),
-                table=session.get("table")
+                table=session.get("table"),
+                x=session.get("x"),
+                y=session.get("y"),
+                z=session.get("z")
             )
 
         if not recommendations:
