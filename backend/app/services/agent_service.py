@@ -40,18 +40,22 @@ class AgentService:
         self._update_session_from_gemini(session, gemini_data)
         self._normalize_session_values(session)
         self._extract_explicit_numeric_filters(message, session)
-        pending_response = self._handle_pending_extra_field_answer(message, session)
-        if pending_response:
-            return pending_response
 
         if session.get("requested_options_for"):
+            requested_options_for = session["requested_options_for"]
+            session["requested_options_for"] = None
+
             return {
                 "answer": self._build_available_options_response(
-                    session["requested_options_for"],
+                    requested_options_for,
                     session.get("language") or "he"
                 ),
                 "intent": "available_options"
             }
+
+        pending_response = self._handle_pending_extra_field_answer(message, session)
+        if pending_response:
+            return pending_response
 
         validation_error = self._validate_session_against_dataset(session)
 
