@@ -40,6 +40,9 @@ class AgentService:
         self._update_session_from_gemini(session, gemini_data)
         self._normalize_session_values(session)
         self._extract_explicit_numeric_filters(message, session)
+        pending_response = self._handle_pending_extra_field_answer(message, session)
+        if pending_response:
+            return pending_response
 
         if session.get("requested_options_for"):
             return {
@@ -107,6 +110,24 @@ class AgentService:
 
     def _try_fast_message(self, message, session):
         normalized = message.lower().strip()
+
+        if session.get("last_question") == "optional_extra_confirmation":
+            negative_answers = ["לא", "לא תודה", "לא, תודה", "no", "no thanks"]
+            positive_answers = ["כן", "כן תודה", "yes", "sure", "ok"]
+
+            if normalized in negative_answers:
+                session["last_question"] = None
+                return self._generate_recommendation_response(session)
+
+            if normalized in positive_answers:
+                session["last_question"] = "extra_field_choice"
+                return {
+                    "answer": (
+                        "איזה מאפיין נוסף תרצי להוסיף ומה הערך שלו?\n"
+                        "למשל: צבע G, ניקיון VS1 או חיתוך Ideal."
+                    ),
+                    "intent": "extra_field_choice"
+                }
 
         end_messages = [
             "תודה", "תודה רבה", "תודה!", "תודה רבה!",
@@ -226,6 +247,12 @@ class AgentService:
                 "intent": "missing_currency"
             }
 
+        required_response = self._handle_required_recommendation_fields(session)
+        if required_response:
+            return required_response
+
+        requested_filters = self._get_active_recommendation_filters(session)
+
         preference = session.get("preference") or "balanced"
 
         if self._requires_diamonds2(session):
@@ -246,7 +273,10 @@ class AgentService:
                 length_width_ratio=session.get("length_width_ratio"),
                 length=session.get("length"),
                 width=session.get("width"),
-                height=session.get("height")
+                height=session.get("height"),
+                carat_category=session.get("carat_category"),
+                price_category=session.get("price_category"),
+                requested_filters=requested_filters
             )
         else:
             recommendations = self.recommendation_service.recommend_by_budget(
@@ -260,7 +290,10 @@ class AgentService:
                 table=session.get("table"),
                 x=session.get("x"),
                 y=session.get("y"),
-                z=session.get("z")
+                z=session.get("z"),
+                carat_category=session.get("carat_category"),
+                price_category=session.get("price_category"),
+                requested_filters=requested_filters
             )
 
         if not recommendations:
@@ -324,6 +357,8 @@ class AgentService:
             "girdle_encoded": None,
             # conversation state
             "requested_options_for": None,
+            "pending_extra_field": None,
+            "asked_optional_extra": False,
             "preference": None,
             "topic": None,
             "language": "he",
@@ -357,6 +392,7 @@ class AgentService:
             "diamond_type", "length_width_ratio", "length", "width", "height",
             "x", "y", "z", "carat_category", "price_category",
             "cut_encoded", "color_encoded", "clarity_encoded", "requested_options_for",
+            "pending_extra_field", "asked_optional_extra",
             "carat_category_encoded", "price_category_encoded",
             "polish_encoded", "symmetry_encoded", "girdle_encoded", "preference", "topic", "language"
         ]
@@ -376,7 +412,7 @@ class AgentService:
             "carat", "depth", "table", "price", "polish", "symmetry", "girdle",
             "diamond_type", "length_width_ratio", "length", "width", "height",
             "x", "y", "z", "carat_category", "price_category",
-            "cut_encoded", "color_encoded", "clarity_encoded", "requested_options_for",
+            "cut_encoded", "color_encoded", "clarity_encoded", "requested_options_for", "pending_extra_field",
             "carat_category_encoded", "price_category_encoded",
             "polish_encoded", "symmetry_encoded", "girdle_encoded", "preference", "topic", "language"
         ]
@@ -433,7 +469,7 @@ class AgentService:
     def _requires_diamonds2(self, session):
         diamonds2_only_fields = [
             "shape", "polish", "symmetry", "girdle",
-            "diamond_type", "length_width_ratio"
+            "diamond_type", "length_width_ratio", "length", "width", "height"
         ]
 
         return any(session.get(field) for field in diamonds2_only_fields)
@@ -502,6 +538,235 @@ class AgentService:
                 if match:
                     session[field] = float(match.group(1))
                     break
+
+    def _get_user_filter_fields(self):
+        return [
+            "shape", "cut", "color", "clarity", "depth", "table", "polish", "symmetry",
+            "girdle", "diamond_type",  "length_width_ratio",
+            "length", "width", "height", "x",
+            "y", "z", "carat_category", "price_category",
+        ]
+
+    def _get_active_extra_fields(self, session):
+        return [
+            field for field in self._get_user_filter_fields()
+            if session.get(field) is not None
+        ]
+
+    def _get_active_recommendation_filters(self, session):
+        fields = ["carat"] + self._get_user_filter_fields()
+
+        return {
+            field: session.get(field)
+            for field in fields
+            if session.get(field) is not None
+        }
+
+    def _handle_required_recommendation_fields(self, session):
+        language = session.get("language") or "he"
+
+        if not session.get("budget"):
+            session["last_question"] = "budget"
+            return {
+                "answer": (
+                    "What is your approximate budget?"
+                    if language == "en"
+                    else "מה התקציב המשוער שלך?"
+                ),
+                "intent": "missing_budget"
+            }
+
+        if not session.get("currency"):
+            session["last_question"] = "currency"
+            return {
+                "answer": self._missing_currency_message(language),
+                "intent": "missing_currency"
+            }
+
+        if not session.get("carat"):
+            session["last_question"] = "carat"
+            return {
+                "answer": (
+                    "To recommend accurately, I need 3 details: budget, carat, and one more attribute.\nWhat carat size would you like?"
+                    if language == "en"
+                    else "כדי לדייק המלצה צריך 3 מאפיינים: תקציב, קראט ועוד מאפיין אחד.\nאיזה גודל קראט תרצי?"
+                ),
+                "intent": "missing_carat"
+            }
+
+        if session.get("pending_extra_field") and session.get(session["pending_extra_field"]) is None:
+            field_label = self._get_field_label(session["pending_extra_field"], language)
+            session["last_question"] = "extra_field_value"
+
+            return {
+                "answer": (
+                    f"What value would you like for {field_label}?"
+                    if language == "en"
+                    else f"מה הערך הרצוי עבור {field_label}?"
+                ),
+                "intent": "missing_extra_field_value"
+            }
+
+        extra_fields = self._get_active_extra_fields(session)
+
+        if len(extra_fields) == 0:
+            session["last_question"] = "extra_field_choice"
+            return {
+                "answer": (
+                    "I have budget and carat. Choose one more attribute and value, for example: color G, clarity VS1, or cut Ideal."
+                    if language == "en"
+                    else "יש לי תקציב וקראט. צריך עוד מאפיין אחד עם ערך, למשל: צבע G, ניקיון VS1 או חיתוך Ideal."
+                ),
+                "intent": "missing_extra_field"
+            }
+
+        if not session.get("asked_optional_extra"):
+            session["asked_optional_extra"] = True
+            session["last_question"] = "optional_extra_confirmation"
+
+            return {
+                "answer": (
+                    "I have the required 3 details. Would you like to add another attribute before I search?"
+                    if language == "en"
+                    else "יש לי את 3 המאפיינים הנדרשים. תרצי להוסיף עוד מאפיין לפני שאחפש?"
+                ),
+                "intent": "optional_extra_confirmation"
+            }
+
+        return None
+
+    def _handle_pending_extra_field_answer(self, message, session):
+        language = session.get("language") or "he"
+        last_question = session.get("last_question")
+
+        if last_question == "extra_field_choice":
+            selected_field = self._extract_field_name_from_message(message)
+
+            if selected_field:
+                session["pending_extra_field"] = selected_field
+                session["last_question"] = "extra_field_value"
+
+                if session.get(selected_field) is not None:
+                    session["pending_extra_field"] = None
+                    return None
+
+                field_label = self._get_field_label(selected_field, language)
+
+                return {
+                    "answer": (
+                        f"What value would you like for {field_label}?"
+                        if language == "en"
+                        else f"מה הערך הרצוי עבור {field_label}?"
+                    ),
+                    "intent": "missing_extra_field_value"
+                }
+
+        if last_question == "extra_field_value" and session.get("pending_extra_field"):
+            field = session["pending_extra_field"]
+
+            if session.get(field) is None:
+                value = self._extract_value_for_pending_field(message, field)
+                if value is not None:
+                    session[field] = value
+                    self._normalize_session_values(session)
+
+            session["pending_extra_field"] = None
+            session["last_question"] = None
+            return None
+
+        return None
+
+    def _extract_field_name_from_message(self, message):
+        normalized = message.lower().strip()
+
+        aliases = {
+            "shape": ["shape", "צורה"],
+            "cut": ["cut", "חיתוך"],
+            "color": ["color", "צבע"],
+            "clarity": ["clarity", "ניקיון", "נקיון"],
+            "depth": ["depth", "עומק"],
+            "table": ["table"],
+            "polish": ["polish", "ליטוש"],
+            "symmetry": ["symmetry", "סימטריה"],
+            "girdle": ["girdle"],
+            "diamond_type": ["type", "diamond type", "סוג", "תעודה"],
+            "length_width_ratio": ["length width ratio", "length/width ratio", "יחס אורך רוחב", "יחס אורך-רוחב"],
+            "length": ["length", "אורך"],
+            "width": ["width", "רוחב"],
+            "height": ["height", "גובה"],
+            "x": ["x", "ערך x"],
+            "y": ["y", "ערך y"],
+            "z": ["z", "ערך z"],
+            "carat_category": ["carat category", "קטגוריית קראט"],
+            "price_category": ["price category", "קטגוריית מחיר"],
+        }
+
+        for field, field_aliases in aliases.items():
+            if any(alias in normalized for alias in field_aliases):
+                return field
+
+        return None
+
+    def _extract_value_for_pending_field(self, message, field):
+        normalized = message.strip()
+
+        numeric_fields = {
+            "depth", "table", "length_width_ratio",
+            "length", "width", "height", "x", "y", "z",
+        }
+
+        if field in numeric_fields:
+            match = re.search(r"\d+(?:\.\d+)?", normalized.replace(",", ""))
+            return float(match.group()) if match else None
+
+        return normalized
+
+    def _get_field_label(self, field, language):
+        labels_en = {
+            "shape": "shape",
+            "cut": "cut",
+            "color": "color",
+            "clarity": "clarity",
+            "depth": "depth",
+            "table": "table",
+            "polish": "polish",
+            "symmetry": "symmetry",
+            "girdle": "girdle",
+            "diamond_type": "type",
+            "length_width_ratio": "length/width ratio",
+            "length": "length",
+            "width": "width",
+            "height": "height",
+            "x": "X",
+            "y": "Y",
+            "z": "Z",
+            "carat_category": "carat category",
+            "price_category": "price category",
+        }
+
+        labels_he = {
+            "shape": "צורה",
+            "cut": "חיתוך",
+            "color": "צבע",
+            "clarity": "ניקיון",
+            "depth": "עומק",
+            "table": "Table",
+            "polish": "ליטוש",
+            "symmetry": "סימטריה",
+            "girdle": "Girdle",
+            "diamond_type": "סוג",
+            "length_width_ratio": "יחס אורך-רוחב",
+            "length": "אורך",
+            "width": "רוחב",
+            "height": "גובה",
+            "x": "X",
+            "y": "Y",
+            "z": "Z",
+            "carat_category": "קטגוריית קראט",
+            "price_category": "קטגוריית מחיר",
+        }
+
+        return labels_en.get(field, field) if language == "en" else labels_he.get(field, field)
 
     def _validate_session_against_dataset(self, session):
         rules = self._get_dataset_validation_rules(session)

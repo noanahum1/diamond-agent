@@ -2,6 +2,7 @@ from app.services.diamond_service import DiamondService
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np
+import pandas as pd
 
 class RecommendationService:
     def __init__(self):
@@ -19,7 +20,10 @@ class RecommendationService:
         table: float = None,
         x: float = None,
         y: float = None,
-        z: float = None
+        z: float = None,
+        carat_category: str = None,
+        price_category: str = None,
+        requested_filters: dict = None
     ):
         diamonds = self.diamond_service.get_diamonds_by_budget(budget)
 
@@ -29,6 +33,8 @@ class RecommendationService:
         diamonds = self._filter_exact(diamonds, "cut", cut)
         diamonds = self._filter_exact(diamonds, "color", color)
         diamonds = self._filter_exact(diamonds, "clarity", clarity)
+        diamonds = self._filter_exact(diamonds, "carat_category", carat_category)
+        diamonds = self._filter_exact(diamonds, "price_category", price_category)
         diamonds = self._filter_numeric_range(diamonds, "carat", carat, tolerance=0.05)
         diamonds = self._filter_numeric_range(diamonds, "depth", depth, tolerance=1.0)
         diamonds = self._filter_numeric_range(diamonds, "table", table, tolerance=1.0)
@@ -58,15 +64,29 @@ class RecommendationService:
             "price"
         ]
 
-        diamonds = self._rank_diamonds1(
+        diamonds = self._rank_by_requested_filters(
             diamonds=diamonds,
-            numeric_columns=numeric_columns,
-            budget=budget,
-            preference=preference
+            requested_filters=requested_filters,
+            field_column_map={
+                "price": "price",
+                "carat": "carat",
+                "cut": "cut",
+                "color": "color",
+                "clarity": "clarity",
+                "depth": "depth",
+                "table": "table",
+                "x": "x",
+                "y": "y",
+                "z": "z",
+                "carat_category": "carat_category",
+                "price_category": "price_category",
+            },
+            price_column="price",
+            budget=budget
         )
 
         return diamonds.head(3)[
-            ["carat", "cut", "color", "clarity", "depth", "table", "price", "x", "y", "z"]
+            ["carat", "cut", "color", "clarity", "depth", "table", "price", "x", "y", "z", "carat_category", "price_category"]
         ].to_dict(orient="records")
 
     def recommend_from_diamonds2(
@@ -87,7 +107,10 @@ class RecommendationService:
         length_width_ratio: float = None,
         length: float = None,
         width: float = None,
-        height: float = None
+        height: float = None,
+        carat_category: str = None,
+        price_category: str = None,
+        requested_filters: dict = None
     ):
         diamonds = self.diamond_service.get_diamonds2_by_budget(budget)
 
@@ -102,7 +125,8 @@ class RecommendationService:
         diamonds = self._filter_exact(diamonds, "Symmetry", symmetry)
         diamonds = self._filter_exact(diamonds, "Girdle", girdle)
         diamonds = self._filter_exact(diamonds, "Type", diamond_type)
-
+        diamonds = self._filter_exact(diamonds, "Carat_category", carat_category)
+        diamonds = self._filter_exact(diamonds, "price_category", price_category)
         diamonds = self._filter_numeric_range(diamonds, "Carat", carat, tolerance=0.05)
         diamonds = self._filter_numeric_range(diamonds, "Depth %", depth, tolerance=1.0)
         diamonds = self._filter_numeric_range(diamonds, "Table %", table, tolerance=1.0)
@@ -144,12 +168,31 @@ class RecommendationService:
             "Type"
         ]
 
-        diamonds = self._rank_diamonds2(
+        diamonds = self._rank_by_requested_filters(
             diamonds=diamonds,
-            numeric_columns=numeric_columns,
-            categorical_columns=categorical_columns,
-            budget=budget,
-            preference=preference
+            requested_filters=requested_filters,
+            field_column_map={
+                "price": "Price",
+                "carat": "Carat",
+                "shape": "Shape",
+                "cut": "Cut",
+                "color": "Color",
+                "clarity": "Clarity",
+                "depth": "Depth %",
+                "table": "Table %",
+                "polish": "Polish",
+                "symmetry": "Symmetry",
+                "girdle": "Girdle",
+                "diamond_type": "Type",
+                "length_width_ratio": "Length/Width Ratio",
+                "length": "Length",
+                "width": "Width",
+                "height": "Height",
+                "carat_category": "Carat_category",
+                "price_category": "price_category",
+            },
+            price_column="Price",
+            budget=budget
         )
 
         return diamonds.head(3)[
@@ -158,7 +201,7 @@ class RecommendationService:
                 "Clarity", "Polish", "Symmetry",
                 "Girdle", "Price", "Type",
                 "Depth %", "Table %", "Length/Width Ratio",
-                "Length", "Width", "Height"
+                "Length", "Width", "Height", "Carat_category", "price_category"
             ]
         ].to_dict(orient="records")
 
@@ -200,7 +243,7 @@ class RecommendationService:
         ].copy()
 
         if close_to_budget.empty:
-            return diamonds.copy()
+            return close_to_budget
 
         preferred_85 = close_to_budget[
             close_to_budget[price_column] >= budget * 0.85
@@ -349,3 +392,107 @@ class RecommendationService:
             scores.append(matches / len(available_columns))
 
         return np.array(scores)
+
+    def _rank_by_requested_filters(
+        self,
+        diamonds,
+        requested_filters: dict,
+        field_column_map: dict,
+        price_column: str,
+        budget: float
+    ):
+        diamonds = diamonds.copy()
+        requested_filters = requested_filters or {}
+
+        price_score = self._calculate_price_score(
+            diamonds=diamonds,
+            price_column=price_column,
+            budget=budget
+        )
+
+        final_score = 0.45 * price_score
+
+        carat_score = np.zeros(len(diamonds))
+
+        if "carat" in requested_filters:
+            carat_column = field_column_map.get("carat")
+
+            if carat_column in diamonds.columns:
+                carat_score = self._calculate_numeric_similarity(
+                    diamonds=diamonds,
+                    column_name=carat_column,
+                    target_value=requested_filters["carat"]
+                )
+
+        final_score += 0.25 * carat_score
+
+        extra_fields = [
+            field for field in requested_filters.keys()
+            if field not in ["price", "carat"]
+            and field in field_column_map
+            and field_column_map[field] in diamonds.columns
+        ]
+
+        if extra_fields:
+            extra_weight = 0.30 / len(extra_fields)
+
+            for field in extra_fields:
+                column_name = field_column_map[field]
+                target_value = requested_filters[field]
+
+                field_score = self._calculate_field_similarity(
+                    diamonds=diamonds,
+                    column_name=column_name,
+                    target_value=target_value
+                )
+
+                final_score += extra_weight * field_score
+
+        diamonds["final_score"] = final_score
+
+        return diamonds.sort_values(by="final_score", ascending=False)
+
+    def _calculate_price_score(self, diamonds, price_column: str, budget: float):
+        if price_column not in diamonds.columns or not budget:
+            return np.zeros(len(diamonds))
+
+        prices = pd.to_numeric(diamonds[price_column], errors="coerce").fillna(budget)
+        distances = (prices - budget).abs()
+
+        scores = 1 - (distances / max(float(budget), 1.0))
+
+        return np.clip(scores.to_numpy(), 0, 1)
+
+    def _calculate_field_similarity(self, diamonds, column_name: str, target_value):
+        try:
+            float(target_value)
+            return self._calculate_numeric_similarity(
+                diamonds=diamonds,
+                column_name=column_name,
+                target_value=target_value
+            )
+        except (TypeError, ValueError):
+            return self._calculate_categorical_similarity(
+                diamonds=diamonds,
+                column_name=column_name,
+                target_value=target_value
+            )
+
+    def _calculate_numeric_similarity(self, diamonds, column_name: str, target_value):
+        values = pd.to_numeric(diamonds[column_name], errors="coerce")
+        target = float(target_value)
+
+        min_value = values.min()
+        max_value = values.max()
+        denominator = max(max_value - min_value, abs(target), 1.0)
+
+        distances = (values - target).abs()
+        scores = 1 - (distances / denominator)
+
+        return np.clip(scores.fillna(0).to_numpy(), 0, 1)
+
+    def _calculate_categorical_similarity(self, diamonds, column_name: str, target_value):
+        values = diamonds[column_name].astype(str).str.lower().str.strip()
+        target = str(target_value).lower().strip()
+
+        return (values == target).astype(float).to_numpy()

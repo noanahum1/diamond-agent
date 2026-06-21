@@ -124,6 +124,7 @@ class GeminiClient:
     "carat_category": null,
     "price_category": null,
     "requested_options_for": null,
+    "pending_extra_field": null,
     "preference": null,
     "topic": null,
     "needs_clarification": false,
@@ -155,6 +156,19 @@ class GeminiClient:
     what cut options exist? -> requested_options_for: "cut"
     איזה ערכים קיימים עבור clarity? -> requested_options_for: "clarity"
     - Do not answer the options yourself. Only extract requested_options_for.
+    - If the previous agent message asked the user to choose one more attribute, and the user replies with an attribute name only, set pending_extra_field to that attribute.
+    - Examples:
+    User: צבע -> pending_extra_field: "color"
+    User: ניקיון -> pending_extra_field: "clarity"
+    User: חיתוך -> pending_extra_field: "cut"
+    User: צורה -> pending_extra_field: "shape"
+    User: polish -> pending_extra_field: "polish"
+    - If the previous agent message asked for the value of a pending attribute, put the user's answer into that field.
+    - Examples:
+    Context: pending_extra_field = "color"; User: G -> color: "G"
+    Context: pending_extra_field = "clarity"; User: VS1 -> clarity: "VS1"
+    Context: pending_extra_field = "cut"; User: Ideal -> cut: "Ideal"
+    Context: pending_extra_field = "shape"; User: Round -> shape: "Round"
     - If user writes only a number and context last_question is budget -> budget.
     - If user writes only currency and budget exists -> currency.
     - Currency normalization: dollar/usd/דולר -> USD, shekel/ils/nis/שקל/שח/ש"ח -> ILS, euro/eur/יורו -> EUR, pound/gbp/פאונד -> GBP.
@@ -313,6 +327,17 @@ User message:
             "girdle": None,
             "diamond_type": None,
             "length_width_ratio": None,
+            "price": None,
+            "x": None,
+            "y": None,
+            "z": None,
+            "length": None,
+            "width": None,
+            "height": None,
+            "carat_category": None,
+            "price_category": None,
+            "requested_options_for": None,
+            "pending_extra_field": None,
             "preference": None,
             "topic": None,
             "needs_clarification": True,
